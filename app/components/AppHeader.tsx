@@ -1,20 +1,18 @@
-// components/AppHeader.tsx
-type HeaderLink = {
-  href: string;
-  label: string;
+type HeaderProps = {
+  leftTitle: string;
+  rightLink?: {
+    href: string;
+    label: string;
+  };
 };
 
-export default function AppHeader({
-  leftTitle,
-  rightLink,
-}: {
-  leftTitle: string;
-  rightLink?: HeaderLink;
-}) {
+export default function AppHeader({ leftTitle, rightLink }: HeaderProps) {
   return (
     <header className="border-b bg-white">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <div className="font-semibold tracking-tight">{leftTitle}</div>
+        <div className="text-sm font-semibold tracking-tight">
+          {leftTitle}
+        </div>
 
         {rightLink ? (
           <a
