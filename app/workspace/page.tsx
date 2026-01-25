@@ -1,5 +1,4 @@
 import AppHeader from "../components/AppHeader";
-
 export default function WorkspacePage() {
   return (
     <main className="min-h-screen bg-green-50 text-zinc-900">

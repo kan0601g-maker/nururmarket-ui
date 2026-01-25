@@ -1,5 +1,4 @@
-import AppHeader from "../components/AppHeader";
-
+import AppHeader from "../../components/AppHeader";
 export default function MarketPage() {
   return (
     <main className="min-h-screen bg-pink-50 text-zinc-900">
