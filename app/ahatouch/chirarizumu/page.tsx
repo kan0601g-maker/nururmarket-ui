@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  chirarizumuStaticIds,
-  listChiraWithSrc,
-  saveChiraFromFile,
-  type ChiraMeta,
-} from "../_components/chirarizumuImages";
+import { listChiraWithSrc, saveChiraFromFile, type ChiraMeta } from "../_components/chirarizumuImages";
 
 type Item = ChiraMeta & { src: string | null };
 
@@ -27,14 +22,20 @@ export default function Page() {
 
   const onPick = async (file: File | null) => {
     if (!file) return;
+
     setBusy(true);
     setMsg(null);
+
     try {
       await saveChiraFromFile(file);
       await refresh();
       setMsg("追加しました");
-    } catch {
-      setMsg("追加に失敗しました");
+    } catch (e: any) {
+      if (String(e?.message || "") === "storage_full") {
+        setMsg("保存容量がいっぱいです（画像が大きい可能性）。別の小さめ画像で試すか、画像を減らしてね。");
+      } else {
+        setMsg("追加に失敗しました");
+      }
     } finally {
       setBusy(false);
     }
@@ -66,9 +67,15 @@ export default function Page() {
                 accept="image/*"
                 className="hidden"
                 disabled={busy}
-                onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  // 同じファイルを連続で選んでも onChange が走るようにリセット
+                  e.currentTarget.value = "";
+                  onPick(f);
+                }}
               />
             </label>
+
             {msg && <div className="text-sm opacity-80">{msg}</div>}
           </div>
 
@@ -101,8 +108,10 @@ export default function Page() {
                         />
                       </div>
                     )}
+
                     <div className="text-sm font-semibold truncate">{x.name}</div>
                     <div className="mt-1 text-xs opacity-60">{new Date(x.createdAt).toLocaleString()}</div>
+
                     <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
                       この画像でパズル →
                     </div>
@@ -111,22 +120,6 @@ export default function Page() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* 既存固定画像を残す（必要なら） */}
-        <div className="mt-10">
-          <h2 className="text-lg font-semibold">固定画像（フォールバック）</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-6">
-            {chirarizumuStaticIds.map((id) => (
-              <Link
-                key={id}
-                href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(id)}&diff=normal`}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-              >
-                {id}
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
     </main>
