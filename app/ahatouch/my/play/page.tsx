@@ -13,7 +13,9 @@ function PlayInner() {
   const sp = useSearchParams();
   const idFromQuery = sp.get("id") ?? "";
 
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  // ✅ AhaPuzzleが受け取れるのは initialDifficulty だけなので固定でOK
+  const initialDifficulty: Difficulty = "easy";
+
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ function PlayInner() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">MY パズル</h1>
-            <p className="mt-1 text-sm opacity-70">difficulty: {difficulty}</p>
+            <p className="mt-1 text-sm opacity-70">id: {idFromQuery || "(none)"}</p>
           </div>
 
           <Link
@@ -62,9 +64,8 @@ function PlayInner() {
           {src ? (
             <AhaPuzzle
               imageSrc={src}
-              imageKey={idFromQuery}                 // ✅ AhaPuzzleが要求
-              initialDifficulty={difficulty}         // ✅ difficulty → initialDifficulty
-              onDifficultyChange={setDifficulty}     // ✅ これは残してOK（型が通るなら）
+              imageKey={idFromQuery}                // ✅ 必須
+              initialDifficulty={initialDifficulty} // ✅ 必須
             />
           ) : (
             <div className="text-sm opacity-70">読み込み中…</div>
