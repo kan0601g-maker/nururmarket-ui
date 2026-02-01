@@ -1,78 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  addChirarizumuImages,
-  clearChirarizumuImages,
-  listStoredChirarizumuImages,
-  getChirarizumuImageSrcById,
-  revokeUrl,
-  type StoredImage,
+  listChirarizumuImages,
+  getChirarizumuImagesSrcById,
+  type ChirarizumuImage,
 } from "../_components/chirarizumuImages";
 
 export default function ChirarizumuHomePage() {
-  const [images, setImages] = useState<StoredImage[]>([]);
+  // 🔴 StoredImage ではなく ChirarizumuImage
+  const [images, setImages] = useState<ChirarizumuImage[]>([]);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [loadingThumbs, setLoadingThumbs] = useState(false);
 
+  // 初期一覧（static 定義）
   useEffect(() => {
-    setImages(listStoredChirarizumuImages());
+    setImages(listChirarizumuImages());
   }, []);
 
-  // サムネ生成
+  // サムネ生成（public 配下の URL）
   useEffect(() => {
     let alive = true;
-
-    Object.values(thumbs).forEach((u) => revokeUrl(u));
     setThumbs({});
 
     (async () => {
       if (!images.length) return;
 
       setLoadingThumbs(true);
-
       const next: Record<string, string> = {};
+
       for (const img of images) {
-        const url = await getChirarizumuImageSrcById(img.id);
-        if (!alive) {
-          if (url) revokeUrl(url);
-          continue;
-        }
-        if (url) next[img.id] = url;
+        const url = getChirarizumuImagesSrcById(img.id);
+        if (!alive) return;
+        next[img.id] = url;
       }
 
-      if (!alive) {
-        Object.values(next).forEach((u) => revokeUrl(u));
-        return;
-      }
-
+      if (!alive) return;
       setThumbs(next);
       setLoadingThumbs(false);
     })();
 
     return () => {
       alive = false;
-      Object.values(thumbs).forEach((u) => revokeUrl(u));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images]);
-
-  const onPick = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    await addChirarizumuImages(files);
-    setImages(listStoredChirarizumuImages());
-    e.target.value = "";
-  };
-
-  const clearAll = async () => {
-    await clearChirarizumuImages();
-    Object.values(thumbs).forEach((u) => revokeUrl(u));
-    setThumbs({});
-    setImages([]);
-  };
 
   const grid = useMemo(() => images, [images]);
 
@@ -93,30 +65,13 @@ export default function ChirarizumuHomePage() {
           </Link>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <label className="text-sm font-semibold">
-            写真を追加（チラリズム専用）
-          </label>
-          <div className="mt-2">
-            <input type="file" accept="image/*" multiple onChange={onPick} />
-          </div>
-
-          <button
-            onClick={clearAll}
-            className="mt-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-          >
-            全削除
-          </button>
-
-          {loadingThumbs && (
-            <div className="mt-2 text-xs opacity-70">サムネ生成中…</div>
-          )}
-        </div>
+        {loadingThumbs && (
+          <div className="mt-4 text-xs opacity-70">サムネ生成中…</div>
+        )}
 
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {grid.map((img) => {
-            const url = thumbs[img.id] ?? null;
-            const label = img.name ?? "image";
+            const url = thumbs[img.id];
 
             return (
               <Link
@@ -128,7 +83,7 @@ export default function ChirarizumuHomePage() {
                   {url ? (
                     <img
                       src={url}
-                      alt={label}
+                      alt={img.id}
                       className="h-44 w-full object-cover opacity-90 group-hover:opacity-100 transition"
                       draggable={false}
                     />
@@ -138,7 +93,7 @@ export default function ChirarizumuHomePage() {
                     </div>
                   )}
                 </div>
-                <div className="mt-2 text-sm opacity-80">{label}</div>
+                <div className="mt-2 text-sm opacity-80">{img.id}</div>
               </Link>
             );
           })}
