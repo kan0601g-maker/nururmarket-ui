@@ -21,21 +21,19 @@ type Card = {
 
 export default function AhaQuizHomePage() {
   const sp = useSearchParams();
-
-  // ✅ cat は null の可能性があるので、必ずカテゴリオブジェクトを確定させる
   const catParam = sp.get("cat");
+
+  // ✅ cat は必ず存在するようにする（null 撲滅）
   const catObj =
     (catParam ? getCategory(catParam) : null) ?? AHA_CATEGORIES[0];
 
-  // 以降はこれだけ使う（nullなし）
   const catId = catObj.id;
+  const title = catObj.label ?? "カテゴリ";
 
   const [cards, setCards] = useState<Card[]>([]);
 
-  const title = useMemo(() => catObj.label ?? "カテゴリ", [catObj.label]);
-
   useEffect(() => {
-    // ✅ クライアントだけでランダム選出（SSRズレ防止）
+    // クライアントのみで生成（SSRズレ防止）
     const all = listImagesByCategory(catId);
     const picked = pickRandom(all, 6);
 
@@ -91,6 +89,7 @@ export default function AhaQuizHomePage() {
         {/* カード一覧 */}
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {cards.length === 0 ? (
+            // スケルトン
             Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
