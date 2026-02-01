@@ -1,9 +1,20 @@
 // app/ahatouch/_components/chirarizumuImages.ts
 
+export type ChirarizumuCategory = "animals" | "flowers" | "world";
+
 export type ChirarizumuImage = {
   id: string;
-  category: "animals" | "flowers" | "world";
+  category: ChirarizumuCategory;
   title?: string;
+};
+
+/**
+ * play 側で localStorage 等に保存する用の最小型
+ * （必要になったら項目追加でOK）
+ */
+export type StoredImage = {
+  id: string;
+  url: string;
 };
 
 export const chirarizumuImages: ChirarizumuImage[] = [
@@ -40,3 +51,33 @@ export const chirarizumuImages: ChirarizumuImage[] = [
   { id: "world_008", category: "world" },
   { id: "world_009", category: "world" },
 ];
+
+/**
+ * 指定カテゴリの画像リストを返す
+ */
+export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => {
+  if (!category) return chirarizumuImages;
+  return chirarizumuImages.filter((x) => x.category === category);
+};
+
+/**
+ * 画像IDから src を作る
+ * ここは実ファイルの置き場所に合わせて変更してOK。
+ *
+ * 例: public/ahatouch/chirarizumu/animals_001.jpg があるなら
+ * "/ahatouch/chirarizumu/animals_001.jpg"
+ */
+export const getChirarizumuImagesSrcById = (id: string) => {
+  // 拡張子はとりあえず .jpg 想定。pngなら .png に変更。
+  return `/ahatouch/chirarizumu/${id}.jpg`;
+};
+
+/**
+ * URL.createObjectURL() で作ったURLを破棄
+ */
+export const revokeUrl = (url?: string | null) => {
+  if (!url) return;
+  try {
+    URL.revokeObjectURL(url);
+  } catch {}
+};
