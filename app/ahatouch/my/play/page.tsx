@@ -4,11 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import {
-  getUserImageSrcById, // ✅ async の想定
-  revokeUrl,
-} from "../../_components/userImages";
-
+import { getUserImageSrcById, revokeUrl } from "../../_components/userImages";
 import { AhaPuzzle } from "../../_components/AhaPuzzle";
 
 type Difficulty = "easy" | "normal" | "hard";
@@ -30,10 +26,9 @@ function PlayInner() {
     let lastUrl: string | null = null;
 
     (async () => {
-      const url = await getUserImageSrcById(idFromQuery); // ✅ await
+      const url = await getUserImageSrcById(idFromQuery);
       if (!alive) return;
 
-      // 前のURLがあれば破棄（objectURLの可能性）
       if (lastUrl) revokeUrl(lastUrl);
       lastUrl = url;
 
@@ -52,9 +47,7 @@ function PlayInner() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">MY パズル</h1>
-            <p className="mt-1 text-sm opacity-70">
-              difficulty: {difficulty}
-            </p>
+            <p className="mt-1 text-sm opacity-70">difficulty: {difficulty}</p>
           </div>
 
           <Link
@@ -69,8 +62,9 @@ function PlayInner() {
           {src ? (
             <AhaPuzzle
               imageSrc={src}
-              difficulty={difficulty}
-              onDifficultyChange={setDifficulty}
+              imageKey={idFromQuery}                 // ✅ AhaPuzzleが要求
+              initialDifficulty={difficulty}         // ✅ difficulty → initialDifficulty
+              onDifficultyChange={setDifficulty}     // ✅ これは残してOK（型が通るなら）
             />
           ) : (
             <div className="text-sm opacity-70">読み込み中…</div>
