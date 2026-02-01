@@ -27,7 +27,11 @@ export default function AhaTouchHomePage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">AHA TOUCH</h1>
-            <p className="mt-2 text-sm opacity-80">遊び方を選ぶ</p>
+
+            {/* ★ HOMEの最初の一文（確定） */}
+            <p className="mt-2 text-sm opacity-80">
+              あそぶ？ それとも、つくる？✨
+            </p>
           </div>
 
           <Link
@@ -38,6 +42,24 @@ export default function AhaTouchHomePage() {
           </Link>
         </div>
 
+        {/* ★ 2択ボタン（あそぶ／つくる） */}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/ahatouch/chirarizumu"
+            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+          >
+            あそぶ
+          </Link>
+
+          <Link
+            href="/ahatouch/my"
+            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+          >
+            つくる
+          </Link>
+        </div>
+
+        {/* ★ 既存タイル（詳細選択用） */}
         <div className="mt-8 space-y-4">
           {tiles.map((t) => (
             <Link
