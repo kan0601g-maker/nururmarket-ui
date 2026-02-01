@@ -1,69 +1,86 @@
 // app/ahatouch/_components/userImages.ts
+"use client";
+
 export type UserImageMeta = {
   id: string;
+  name: string;
   createdAt: number;
 };
 
-const META_KEY = "ahatouch:userImages:meta";
-const DATA_PREFIX = "ahatouch:userImages:data:"; // + id
+type StoredUserImage = {
+  id: string;
+  name: string;
+  createdAt: number;
+  dataUrl: string; // DataURL (base64)
+};
 
-function uid() {
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
+const INDEX_KEY = "ahatouch_user_images_index_v1";
+const ITEM_KEY_PREFIX = "ahatouch_user_image_v1:";
 
-function readMeta(): UserImageMeta[] {
+const safeJsonParse = <T,>(raw: string | null): T | null => {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(META_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return JSON.parse(raw) as T;
   } catch {
-    return [];
+    return null;
   }
-}
+};
 
-function writeMeta(items: UserImageMeta[]) {
-  localStorage.setItem(META_KEY, JSON.stringify(items));
-}
+const loadIndex = (): UserImageMeta[] => {
+  const idx = safeJsonParse<UserImageMeta[]>(localStorage.getItem(INDEX_KEY));
+  if (!idx || !Array.isArray(idx)) return [];
+  return idx.filter(
+    (x) => x && typeof x.id === "string" && typeof x.name === "string" && typeof x.createdAt === "number"
+  );
+};
 
-async function fileToDataUrl(file: File): Promise<string> {
-  return await new Promise((resolve, reject) => {
+const saveIndex = (idx: UserImageMeta[]) => {
+  localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+};
+
+const makeId = () => `user_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("FileReader failed"));
+    r.onload = () => resolve(String(r.result ?? ""));
+    r.onerror = () => reject(new Error("failed to read file"));
     r.readAsDataURL(file);
   });
-}
 
-// ✅ 取り込み（File → DataURL を localStorage へ）
 export async function saveUserImageFromFile(file: File): Promise<string> {
-  const id = uid();
-  const dataUrl = await fileToDataUrl(file);
+  const dataUrl = await readFileAsDataUrl(file);
+  const id = makeId();
+  const name = file.name || "image";
+  const createdAt = Date.now();
 
-  localStorage.setItem(DATA_PREFIX + id, dataUrl);
+  const item: StoredUserImage = { id, name, createdAt, dataUrl };
 
-  const meta = readMeta();
-  meta.unshift({ id, createdAt: Date.now() });
-  writeMeta(meta);
+  // save item
+  localStorage.setItem(ITEM_KEY_PREFIX + id, JSON.stringify(item));
+
+  // update index (newest first)
+  const idx = loadIndex();
+  const next: UserImageMeta[] = [{ id, name, createdAt }, ...idx.filter((x) => x.id !== id)];
+  saveIndex(next);
 
   return id;
 }
 
-// ✅ 一覧
-export async function listUserImages(): Promise<UserImageMeta[]> {
-  return readMeta();
+export function listUserImages(): Promise<UserImageMeta[]> {
+  // newest first
+  const idx = loadIndex().sort((a, b) => b.createdAt - a.createdAt);
+  return Promise.resolve(idx);
 }
 
-// ✅ 1枚取得（DataURLを返す）
-// ※ Next の build/SSRでも呼ばれうるので、呼び出し側は client のみで使うこと
 export async function getUserImageSrcById(id: string): Promise<string | null> {
-  if (!id) return null;
-  const dataUrl = localStorage.getItem(DATA_PREFIX + id);
-  return dataUrl ?? null;
+  const raw = localStorage.getItem(ITEM_KEY_PREFIX + id);
+  const item = safeJsonParse<StoredUserImage>(raw);
+  if (!item || typeof item.dataUrl !== "string") return null;
+  return item.dataUrl;
 }
 
-// ✅ DataURLは revoke 不要。将来 blob URL にした時のために残すだけ
-export function revokeUrl(_url: string) {
+// DataURL は revoke 不要。将来 objectURL にしても壊れないよう関数だけ残す。
+export function revokeUrl(_url: string): void {
   // no-op
 }
