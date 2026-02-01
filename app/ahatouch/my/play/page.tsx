@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
-  getUserImageSrcById, // ✅ 単数形
+  getUserImageSrcById, // ✅ async の想定
   revokeUrl,
 } from "../../_components/userImages";
 
@@ -13,7 +13,6 @@ import { AhaPuzzle } from "../../_components/AhaPuzzle";
 
 type Difficulty = "easy" | "normal" | "hard";
 
-/* ===== Suspense 内側 ===== */
 function PlayInner() {
   const sp = useSearchParams();
   const idFromQuery = sp.get("id") ?? "";
@@ -22,16 +21,28 @@ function PlayInner() {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!idFromQuery) return;
+    if (!idFromQuery) {
+      setSrc(null);
+      return;
+    }
 
     let alive = true;
-    const url = getUserImageSrcById(idFromQuery);
+    let lastUrl: string | null = null;
 
-    if (alive) setSrc(url);
+    (async () => {
+      const url = await getUserImageSrcById(idFromQuery); // ✅ await
+      if (!alive) return;
+
+      // 前のURLがあれば破棄（objectURLの可能性）
+      if (lastUrl) revokeUrl(lastUrl);
+      lastUrl = url;
+
+      setSrc(url);
+    })();
 
     return () => {
       alive = false;
-      if (url) revokeUrl(url);
+      if (lastUrl) revokeUrl(lastUrl);
     };
   }, [idFromQuery]);
 
@@ -70,7 +81,6 @@ function PlayInner() {
   );
 }
 
-/* ===== 外側（Suspense） ===== */
 export default function Page() {
   return (
     <Suspense
