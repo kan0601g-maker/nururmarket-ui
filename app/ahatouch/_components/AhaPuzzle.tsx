@@ -23,10 +23,16 @@ const formatMs = (ms: number) => {
   return `${m}:${pad2(s)}`;
 };
 
+/**
+ * ✅ 難易度の分割数
+ * - easy: 4x4（現状維持）
+ * - normal: 5x5（現状維持）
+ * - hard: 10x10（要件）
+ */
 const sizeByDifficulty = (d: Difficulty) => {
   if (d === "easy") return 4;
   if (d === "normal") return 5;
-  return 6;
+  return 10;
 };
 
 const defaultGoalMoves = (d: Difficulty) => {
@@ -122,14 +128,24 @@ const pieceStyle = (pieceIndex: number, size: number, imageSrc: string) => {
 export function AhaPuzzle({
   imageSrc,
   imageKey,
+  /**
+   * ✅ 新：親から difficulty を渡せる（play側から渡してるのはこれ）
+   * - "easy" | "normal" | "hard"
+   */
+  difficulty,
+  /**
+   * ✅ 旧：互換のため残す（過去コードが initialDifficulty を渡しててもOK）
+   */
   initialDifficulty = "easy",
 }: {
   imageSrc: string;
   imageKey: string;
+  difficulty?: Difficulty;
   initialDifficulty?: Difficulty;
 }) {
-  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty);
-  const size = useMemo(() => sizeByDifficulty(difficulty), [difficulty]);
+  // ✅ difficulty を優先（なければ initialDifficulty）
+  const [diff, setDiff] = useState<Difficulty>(difficulty ?? initialDifficulty);
+  const size = useMemo(() => sizeByDifficulty(diff), [diff]);
 
   // ★ hydration対策用フラグ
   const [mounted, setMounted] = useState(false);
@@ -145,18 +161,18 @@ export function AhaPuzzle({
     setNowTick(Date.now());
   }, []);
 
-  // 親から難易度が変わったら追従
+  // 親から難易度が変わったら追従（difficulty優先）
   useEffect(() => {
-    setDifficulty(initialDifficulty);
-  }, [initialDifficulty]);
+    setDiff(difficulty ?? initialDifficulty);
+  }, [difficulty, initialDifficulty]);
 
   // ★ クライアントマウント後にシャッフル
   useEffect(() => {
     if (!mounted) return;
     setPuzzle(makePuzzle(size));
-    setBest(loadBest(imageKey, difficulty));
+    setBest(loadBest(imageKey, diff));
     setToast(null);
-  }, [mounted, size, difficulty, imageKey]);
+  }, [mounted, size, diff, imageKey]);
 
   // タイマー更新
   useEffect(() => {
@@ -174,7 +190,7 @@ export function AhaPuzzle({
   }, [mounted, puzzle.startedAt, puzzle.solvedAt, nowTick]);
 
   const bestMovesForGoal = best ? best.moves : null;
-  const { goal, stretch } = calcGoals(bestMovesForGoal, difficulty);
+  const { goal, stretch } = calcGoals(bestMovesForGoal, diff);
 
   const shuffle = () => {
     if (!mounted) return;
@@ -205,9 +221,9 @@ export function AhaPuzzle({
         const timeMs = solvedAt - startedAt;
         const candidate = { moves: nextMoves, timeMs };
 
-        const currentBest = best ?? loadBest(imageKey, difficulty);
+        const currentBest = best ?? loadBest(imageKey, diff);
         if (isBetter(candidate, currentBest)) {
-          saveBest(imageKey, difficulty, candidate);
+          saveBest(imageKey, diff, candidate);
           setBest(candidate);
         }
 
@@ -235,9 +251,7 @@ export function AhaPuzzle({
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm opacity-80">
         <div>
           手数 {puzzle.moves} / 時間 {formatMs(elapsedMs)}
-          <span className="ml-3">
-            ベスト：{best ? `${best.moves} 手 / ${formatMs(best.timeMs)}` : "—"}
-          </span>
+          <span className="ml-3">ベスト：{best ? `${best.moves} 手 / ${formatMs(best.timeMs)}` : "—"}</span>
         </div>
 
         <button
