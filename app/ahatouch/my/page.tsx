@@ -3,15 +3,21 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { listUserImages, saveUserImageFromFile, type UserImageMeta } from "../_components/userImages";
+import {
+  listUserImagesWithSrc,
+  saveUserImageFromFile,
+  type UserImageMeta,
+} from "../_components/userImages";
+
+type Item = UserImageMeta & { src: string | null };
 
 export default function Page() {
-  const [items, setItems] = useState<UserImageMeta[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const refresh = async () => {
-    const list = await listUserImages();
+    const list = await listUserImagesWithSrc();
     setItems(list);
   };
 
@@ -88,10 +94,22 @@ export default function Page() {
                   className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition"
                 >
                   <div className="p-4">
+                    {x.src && (
+                      <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+                        <img
+                          src={x.src}
+                          alt={x.name}
+                          className="w-full h-40 object-cover"
+                          draggable={false}
+                        />
+                      </div>
+                    )}
+
                     <div className="text-sm font-semibold truncate">{x.name}</div>
                     <div className="mt-1 text-xs opacity-60">
                       {new Date(x.createdAt).toLocaleString()}
                     </div>
+
                     <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
                       この画像でパズル →
                     </div>

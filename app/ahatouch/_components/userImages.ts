@@ -30,7 +30,11 @@ const loadIndex = (): UserImageMeta[] => {
   const idx = safeJsonParse<UserImageMeta[]>(localStorage.getItem(INDEX_KEY));
   if (!idx || !Array.isArray(idx)) return [];
   return idx.filter(
-    (x) => x && typeof x.id === "string" && typeof x.name === "string" && typeof x.createdAt === "number"
+    (x) =>
+      x &&
+      typeof (x as any).id === "string" &&
+      typeof (x as any).name === "string" &&
+      typeof (x as any).createdAt === "number"
   );
 };
 
@@ -78,6 +82,16 @@ export async function getUserImageSrcById(id: string): Promise<string | null> {
   const item = safeJsonParse<StoredUserImage>(raw);
   if (!item || typeof item.dataUrl !== "string") return null;
   return item.dataUrl;
+}
+
+/**
+ * ✅ 一覧表示用：meta + src をまとめて返す（サムネ用）
+ * ※ localStorageの画像が多いと重くなるので、必要なら将来「先頭N件だけ」も可能
+ */
+export async function listUserImagesWithSrc(): Promise<(UserImageMeta & { src: string | null })[]> {
+  const metas = await listUserImages();
+  const out = await Promise.all(metas.map(async (m) => ({ ...m, src: await getUserImageSrcById(m.id) })));
+  return out;
 }
 
 // DataURL は revoke 不要。将来 objectURL にしても壊れないよう関数だけ残す。
