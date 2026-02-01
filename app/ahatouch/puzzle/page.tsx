@@ -2,14 +2,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AHA_CATEGORIES, getCategory } from "../_components/Categories";
-import {
-  listImagesByCategory,
-  pickRandom,
-  type AhaImage,
-} from "../_components/getImages";
+import { listImagesByCategory, pickRandom, type AhaImage } from "../_components/getImages";
 
 type Card = {
   id: string;
@@ -19,12 +15,13 @@ type Card = {
   imageSrc: string;
 };
 
-export default function AhaPuzzleHomePage() {
+function PuzzleInner() {
   const sp = useSearchParams();
 
+  // queryからカテゴリ取得（null安全）
   const catParam = sp.get("cat");
   const catObj = catParam ? getCategory(catParam) : null;
-  const cat = catObj?.id ?? "animals"; // ← cat は必ず string に落とす
+  const cat = catObj?.id ?? "animals";
 
   const [cards, setCards] = useState<Card[]>([]);
 
@@ -125,5 +122,20 @@ export default function AhaPuzzleHomePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  // ✅ useSearchParams() を Suspense で包む（prerender/build対策）
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-sm opacity-70">読み込み中…</div>
+        </main>
+      }
+    >
+      <PuzzleInner />
+    </Suspense>
   );
 }
