@@ -1,98 +1,84 @@
+// app/ahatouch/puzzle/play/page.tsx
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import AhaPuzzle from "../../_components/AhaPuzzle";
 
-type Difficulty = "easy" | "normal" | "hard";
+// ※ ここは君の実装に合わせて import を残してOK
+// 例）import { AhaPuzzle } from "../../_components/AhaPuzzle";
+// 例）import { getImageSrcById, revokeUrl } from "../../_components/....";
 
-const DIFFS: { key: Difficulty; label: string }[] = [
-  { key: "easy", label: "やさしい" },
-  { key: "normal", label: "ふつう" },
-  { key: "hard", label: "上級" },
-];
-
-export default function AhaPuzzlePlayPage() {
+function PlayInner() {
   const sp = useSearchParams();
 
-  const id = (sp.get("id") ?? "").trim();
-  const cat = (sp.get("cat") ?? "").trim();
+  // ✅ Suspenseの内側で query を読む
+  const idFromQuery = sp.get("id") ?? "";
 
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  // ======= ここから下は「今ある play の中身」を入れる =======
+  // 例：状態
+  const [ready, setReady] = useState(false);
 
-  const imageSrc = useMemo(() => {
-    const inferred = id.includes("_") ? id.split("_")[0] : cat || "animals";
-    const safeCat =
-      inferred === "animals" || inferred === "flowers" || inferred === "world"
-        ? inferred
-        : "animals";
+  useEffect(() => {
+    // 初期化（必要なら）
+    setReady(true);
+  }, []);
 
-    if (!id) return "";
-    return `/ahatouch/${safeCat}/${id}.webp`;
-  }, [id, cat]);
-
-  if (!id || !imageSrc) {
-    return (
-      <main className="min-h-screen bg-black text-white">
-        <div className="mx-auto max-w-4xl px-6 py-10">
-          <h1 className="text-2xl font-bold">AHA TOUCH パズル</h1>
-          <p className="mt-2 text-sm opacity-80">画像IDが指定されていません。</p>
-          <Link
-            href="/ahatouch/puzzle"
-            className="mt-6 inline-block rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-          >
-            ← 戻る
-          </Link>
-        </div>
-      </main>
-    );
-  }
+  // ここに、既存の play ロジック（画像取得 / difficulty / UIなど）を貼る
+  // 重要：useSearchParams() はこの PlayInner の中だけで使うこと
 
   return (
     <main className="min-h-screen bg-black text-white">
-      {/* ★スマホだけ max-w-none + 余白を詰める */}
-      <div className="mx-auto w-full max-w-none sm:max-w-5xl px-3 sm:px-6 py-6 sm:py-10">
+      <div className="mx-auto max-w-4xl px-6 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">AHA TOUCH パズル</h1>
-            <p className="mt-2 text-sm opacity-80">画像: {id}</p>
+            <h1 className="text-2xl font-bold">PUZZLE PLAY</h1>
+            <p className="mt-2 text-sm opacity-70">id: {idFromQuery || "(none)"}</p>
           </div>
 
-          <Link
-            href="/ahatouch/puzzle"
-            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
-          >
-            ← カテゴリへ戻る
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/ahatouch/puzzle"
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+            >
+              戻る
+            </Link>
+            <Link
+              href="/ahatouch"
+              className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
+            >
+              AHA TOUCH HOME
+            </Link>
+          </div>
         </div>
 
-        {/* 難易度ボタン */}
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <div className="mr-2 text-sm font-semibold opacity-80">難易度</div>
-          {DIFFS.map((d) => {
-            const active = d.key === difficulty;
-            return (
-              <button
-                key={d.key}
-                onClick={() => setDifficulty(d.key)}
-                className={[
-                  "rounded-xl border px-4 py-2 text-sm transition touch-manipulation",
-                  active
-                    ? "bg-white text-black border-white"
-                    : "bg-white/5 text-white border-white/15 hover:bg-white/10",
-                ].join(" ")}
-              >
-                {d.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-6">
-          <AhaPuzzle imageSrc={imageSrc} imageKey={id} initialDifficulty={difficulty} />
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
+          {ready ? (
+            <div className="text-sm opacity-80">
+              ✅ ここに既存のパズルUIを戻す（AhaPuzzleなど）
+              <br />
+              例：<code>{`<AhaPuzzle imageSrc={src} imageKey={idFromQuery} ... />`}</code>
+            </div>
+          ) : (
+            <div className="text-sm opacity-70">読み込み中…</div>
+          )}
         </div>
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  // ✅ これがビルドエラーを止める本体
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-sm opacity-70">読み込み中…</div>
+        </main>
+      }
+    >
+      <PlayInner />
+    </Suspense>
   );
 }
