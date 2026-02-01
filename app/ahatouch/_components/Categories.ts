@@ -1,8 +1,8 @@
 // app/ahatouch/_components/Categories.ts
-
 export type AhaCategory = {
-  id: string;     // URLで使う: ?cat=flowers
-  label: string;  // 表示名
+  id: string;
+  label: string;
+  imageSrc: string;
 };
 
 export const AHA_CATEGORIES: AhaCategory[] = [
