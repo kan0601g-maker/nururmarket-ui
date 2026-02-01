@@ -1,42 +1,31 @@
-type NavLink = { href: string; label: string };
+// app/components/AppHeader.tsx
+"use client";
+
+import Link from "next/link";
+
+type RightLink = { href: string; label: string };
 
 export default function AppHeader({
   leftTitle,
   rightLink,
-  navLinks,
 }: {
   leftTitle: string;
-  rightLink?: { href: string; label: string };
-  navLinks?: NavLink[];
+  rightLink?: RightLink;
 }) {
   return (
-    <header className="border-b bg-white">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <div className="text-sm font-semibold tracking-tight">{leftTitle}</div>
+    <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black text-white">
+      <div className="text-sm font-semibold">{leftTitle}</div>
 
-        {navLinks && navLinks.length > 0 ? (
-          <nav className="flex items-center gap-6 text-sm">
-            {navLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="text-zinc-700 hover:text-zinc-900 hover:underline"
-              >
-                {l.label}
-              </a>
-            ))}
-          </nav>
-        ) : rightLink ? (
-          <a
-            href={rightLink.href}
-            className="text-sm text-zinc-700 hover:text-zinc-900 hover:underline"
-          >
-            {rightLink.label}
-          </a>
-        ) : (
-          <div />
-        )}
-      </div>
+      {rightLink ? (
+        <Link
+          href={rightLink.href}
+          className="rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-xs hover:bg-white/10 transition"
+        >
+          {rightLink.label}
+        </Link>
+      ) : (
+        <div />
+      )}
     </header>
   );
 }

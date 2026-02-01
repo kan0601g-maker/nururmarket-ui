@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AHA_CATEGORIES, getCategory } from "../_components/Categories";
-import {
-  listImagesByCategory,
-  pickRandom,
-  type AhaImage,
-} from "../_components/getImages";
+import { listImagesByCategory, pickRandom, type AhaImage } from "../_components/getImages";
 
 type Card = {
   id: string;
@@ -21,40 +17,40 @@ type Card = {
 
 export default function AhaQuizHomePage() {
   const sp = useSearchParams();
+
   const catParam = sp.get("cat");
+  const catObj = catParam ? getCategory(catParam) : null;
+  const catId = catObj?.id ?? "animals"; // ✅ 必ずstring
 
-  // ✅ cat は必ず存在するようにする（null 撲滅）
-  const catObj =
-    (catParam ? getCategory(catParam) : null) ?? AHA_CATEGORIES[0];
-
-  const catId = catObj.id;
-  const title = catObj.label ?? "カテゴリ";
+  const catLabel = useMemo(() => {
+    const c = AHA_CATEGORIES.find((x) => x.id === catId);
+    return c?.label ?? "カテゴリ";
+  }, [catId]);
 
   const [cards, setCards] = useState<Card[]>([]);
 
   useEffect(() => {
-    // クライアントのみで生成（SSRズレ防止）
     const all = listImagesByCategory(catId);
     const picked = pickRandom(all, 6);
 
     const next: Card[] = picked.map((img: AhaImage) => ({
       id: img.id,
-      label: title,
+      label: catLabel,
       sub: "クイズ",
       href: `/ahatouch/quiz/play?id=${encodeURIComponent(img.id)}`,
       imageSrc: img.src,
     }));
 
     setCards(next);
-  }, [catId, title]);
+  }, [catId, catLabel]);
 
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">ちらりずむ（{title}）</h1>
-            <p className="mt-1 text-sm opacity-80">100枚めくり</p>
+            <h1 className="text-3xl font-bold">AHA TOUCH クイズ</h1>
+            <p className="mt-2 text-sm opacity-80">カテゴリを選んでクイズ</p>
           </div>
 
           <Link
@@ -86,10 +82,8 @@ export default function AhaQuizHomePage() {
           })}
         </div>
 
-        {/* カード一覧 */}
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {cards.length === 0 ? (
-            // スケルトン
             Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}

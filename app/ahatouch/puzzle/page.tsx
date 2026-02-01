@@ -22,9 +22,9 @@ type Card = {
 export default function AhaPuzzleHomePage() {
   const sp = useSearchParams();
 
-  // ✅ URLクエリは null の可能性があるので安全に扱う
   const catParam = sp.get("cat");
-  const cat = (catParam ? getCategory(catParam)?.id : null) ?? "animals";
+  const catObj = catParam ? getCategory(catParam) : null;
+  const cat = catObj?.id ?? "animals"; // ← cat は必ず string に落とす
 
   const [cards, setCards] = useState<Card[]>([]);
 
@@ -36,7 +36,7 @@ export default function AhaPuzzleHomePage() {
   useEffect(() => {
     // ✅ クライアントでだけランダム選出（SSRズレ防止）
     const all = listImagesByCategory(cat);
-    const picked = pickRandom(all, 6); // 表示枚数（好みで変更OK）
+    const picked = pickRandom(all, 6);
 
     const next: Card[] = picked.map((img: AhaImage) => ({
       id: img.id,
@@ -92,7 +92,6 @@ export default function AhaPuzzleHomePage() {
         {/* カード一覧（SSRでは空→useEffectで入る） */}
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           {cards.length === 0 ? (
-            // ちらつき防止の簡易スケルトン
             Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
