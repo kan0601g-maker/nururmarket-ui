@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-type Difficulty = "easy" | "normal" | "hard";
+export type Difficulty = "easy" | "normal" | "hard" | "aha";
 
 type PuzzleState = {
   order: number[];
@@ -23,22 +23,18 @@ const formatMs = (ms: number) => {
   return `${m}:${pad2(s)}`;
 };
 
-/**
- * ✅ 難易度の分割数
- * - easy: 4x4（現状維持）
- * - normal: 5x5（現状維持）
- * - hard: 10x10（要件）
- */
 const sizeByDifficulty = (d: Difficulty) => {
   if (d === "easy") return 4;
-  if (d === "normal") return 6;
-  return 10;
+  if (d === "normal") return 6;   // ←要件（前に決めた）
+  if (d === "hard") return 10;
+  return 20;                      // ←aha（20×20）
 };
 
 const defaultGoalMoves = (d: Difficulty) => {
   if (d === "easy") return 20;
   if (d === "normal") return 50;
-  return 90;
+  if (d === "hard") return 90;
+  return 220; // aha（目標はざっくり）
 };
 
 const calcGoals = (bestMoves: number | null, d: Difficulty) => {
@@ -128,14 +124,7 @@ const pieceStyle = (pieceIndex: number, size: number, imageSrc: string) => {
 export function AhaPuzzle({
   imageSrc,
   imageKey,
-  /**
-   * ✅ 新：親から difficulty を渡せる（play側から渡してるのはこれ）
-   * - "easy" | "normal" | "hard"
-   */
   difficulty,
-  /**
-   * ✅ 旧：互換のため残す（過去コードが initialDifficulty を渡しててもOK）
-   */
   initialDifficulty = "easy",
 }: {
   imageSrc: string;
@@ -143,14 +132,11 @@ export function AhaPuzzle({
   difficulty?: Difficulty;
   initialDifficulty?: Difficulty;
 }) {
-  // ✅ difficulty を優先（なければ initialDifficulty）
   const [diff, setDiff] = useState<Difficulty>(difficulty ?? initialDifficulty);
   const size = useMemo(() => sizeByDifficulty(diff), [diff]);
 
-  // ★ hydration対策用フラグ
   const [mounted, setMounted] = useState(false);
 
-  // ★ SSR安全な初期state
   const [puzzle, setPuzzle] = useState<PuzzleState>(() => makeInitialPuzzle(size));
   const [best, setBest] = useState<PuzzleBest | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -161,12 +147,10 @@ export function AhaPuzzle({
     setNowTick(Date.now());
   }, []);
 
-  // 親から難易度が変わったら追従（difficulty優先）
   useEffect(() => {
     setDiff(difficulty ?? initialDifficulty);
   }, [difficulty, initialDifficulty]);
 
-  // ★ クライアントマウント後にシャッフル
   useEffect(() => {
     if (!mounted) return;
     setPuzzle(makePuzzle(size));
@@ -174,7 +158,6 @@ export function AhaPuzzle({
     setToast(null);
   }, [mounted, size, diff, imageKey]);
 
-  // タイマー更新
   useEffect(() => {
     if (!mounted) return;
     if (puzzle.startedAt === null || puzzle.solved) return;
@@ -190,7 +173,7 @@ export function AhaPuzzle({
   }, [mounted, puzzle.startedAt, puzzle.solvedAt, nowTick]);
 
   const bestMovesForGoal = best ? best.moves : null;
-  const { goal, stretch } = calcGoals(bestMovesForGoal, diff);
+  const { goal } = calcGoals(bestMovesForGoal, diff);
 
   const shuffle = () => {
     if (!mounted) return;
@@ -244,14 +227,16 @@ export function AhaPuzzle({
     });
   };
 
-  if (!mounted) return null; // ← iPhoneのhydration警告を消す
+  if (!mounted) return null;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm opacity-80">
         <div>
           手数 {puzzle.moves} / 時間 {formatMs(elapsedMs)}
-          <span className="ml-3">ベスト：{best ? `${best.moves} 手 / ${formatMs(best.timeMs)}` : "—"}</span>
+          <span className="ml-3">
+            ベスト：{best ? `${best.moves} 手 / ${formatMs(best.timeMs)}` : "—"}
+          </span>
         </div>
 
         <button
@@ -263,11 +248,10 @@ export function AhaPuzzle({
       </div>
 
       <div className="mt-2 text-sm opacity-80">
-        目標 {goal} 手（ストレッチ {stretch} 手）
+        目標 {goal} 手（現在 {puzzle.moves} 手）
       </div>
 
       <div className="mt-3 relative w-full overflow-hidden rounded-xl border border-white/10">
-        {/* ✅ スマホだけ “高さを確保してデカく見せる” */}
         <img
           src={imageSrc}
           alt="AhaPuzzle"
@@ -294,7 +278,6 @@ export function AhaPuzzle({
                   "w-full h-full",
                   "border border-white/30",
                   "transition-all duration-150 ease-out",
-                  // スマホで「押せた」が分かる演出
                   "active:scale-95 active:ring-4 active:ring-pink-400",
                   selected
                     ? "shadow-[0_12px_30px_rgba(0,0,0,0.55)] ring-4 ring-yellow-300 scale-[1.03]"

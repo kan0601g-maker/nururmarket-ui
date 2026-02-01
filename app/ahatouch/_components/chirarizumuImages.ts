@@ -1,177 +1,89 @@
-// app/ahatouch/_components/chirarizumuImages.ts
+"use client";
 
-export type ChirarizumuCategory = "animals" | "flowers" | "world";
-
-export type ChirarizumuImage = {
+export type ChiraMeta = {
   id: string;
-  category: ChirarizumuCategory;
-  title?: string;
+  name: string;
+  createdAt: number;
 };
 
-/**
- * localStorageに保存する用（アップロード画像）
- */
-export type StoredImage = {
+type StoredChira = {
   id: string;
-  url: string; // objectURL
-  name: string; // 表示名
+  name: string;
+  createdAt: number;
+  dataUrl: string;
 };
 
-// ===== 静的（public配下） =====
-export const chirarizumuImages: ChirarizumuImage[] = [
-  // 🐾 animals
-  { id: "animals_001", category: "animals" },
-  { id: "animals_002", category: "animals" },
-  { id: "animals_003", category: "animals" },
-  { id: "animals_004", category: "animals" },
-  { id: "animals_005", category: "animals" },
-  { id: "animals_006", category: "animals" },
-  { id: "animals_007", category: "animals" },
-  { id: "animals_008", category: "animals" },
-  { id: "animals_009", category: "animals" },
-  { id: "animals_010", category: "animals" },
+const INDEX_KEY = "ahatouch_chira_index_v1";
+const ITEM_KEY_PREFIX = "ahatouch_chira_item_v1:";
 
-  // 🌸 flowers
-  { id: "flowers_001", category: "flowers" },
-  { id: "flowers_002", category: "flowers" },
-  { id: "flowers_003", category: "flowers" },
-  { id: "flowers_004", category: "flowers" },
-  { id: "flowers_005", category: "flowers" },
-  { id: "flowers_006", category: "flowers" },
-  { id: "flowers_007", category: "flowers" },
-  { id: "flowers_008", category: "flowers" },
-
-  // 🌍 world
-  { id: "world_001", category: "world" },
-  { id: "world_002", category: "world" },
-  { id: "world_003", category: "world" },
-  { id: "world_004", category: "world" },
-  { id: "world_005", category: "world" },
-  { id: "world_006", category: "world" },
-  { id: "world_007", category: "world" },
-  { id: "world_008", category: "world" },
-  { id: "world_009", category: "world" },
+// 既存の固定画像も残す（フォールバック用）
+export const chirarizumuStaticIds: string[] = [
+  "animals_001","animals_002","animals_003",
+  "animals_004","animals_005","animals_006",
+  "animals_007","animals_008","animals_009",
 ];
 
-/**
- * （静的）指定カテゴリの画像リストを返す
- * ※ こっちは ChirarizumuImage[] を返す
- */
-export const listChirarizumuImages = (
-  category?: ChirarizumuCategory | null
-): ChirarizumuImage[] => {
-  if (!category) return chirarizumuImages;
-  return chirarizumuImages.filter((x) => x.category === category);
+const safeJsonParse = <T,>(raw: string | null): T | null => {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as T; } catch { return null; }
 };
 
-/**
- * （静的）画像IDから src を作る
- * 例: public/ahatouch/chirarizumu/animals_001.jpg があるなら
- * "/ahatouch/chirarizumu/animals_001.jpg"
- */
-export const getChirarizumuImagesSrcById = (id: string) => {
+const loadIndex = (): ChiraMeta[] => {
+  const idx = safeJsonParse<ChiraMeta[]>(localStorage.getItem(INDEX_KEY));
+  if (!idx || !Array.isArray(idx)) return [];
+  return idx.filter(
+    (x) => x && typeof (x as any).id === "string" && typeof (x as any).name === "string" && typeof (x as any).createdAt === "number"
+  );
+};
+
+const saveIndex = (idx: ChiraMeta[]) => {
+  localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+};
+
+const makeId = () => `chira_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result ?? ""));
+    r.onerror = () => reject(new Error("failed to read file"));
+    r.readAsDataURL(file);
+  });
+
+export async function saveChiraFromFile(file: File): Promise<string> {
+  const dataUrl = await readFileAsDataUrl(file);
+  const id = makeId();
+  const name = file.name || "image";
+  const createdAt = Date.now();
+
+  const item: StoredChira = { id, name, createdAt, dataUrl };
+  localStorage.setItem(ITEM_KEY_PREFIX + id, JSON.stringify(item));
+
+  const idx = loadIndex();
+  const next: ChiraMeta[] = [{ id, name, createdAt }, ...idx.filter((x) => x.id !== id)];
+  saveIndex(next);
+
+  return id;
+}
+
+export function listChira(): Promise<ChiraMeta[]> {
+  const idx = loadIndex().sort((a, b) => b.createdAt - a.createdAt);
+  return Promise.resolve(idx);
+}
+
+export async function getChiraSrcById(id: string): Promise<string | null> {
+  // まず保存済みを探す
+  const raw = localStorage.getItem(ITEM_KEY_PREFIX + id);
+  const item = safeJsonParse<StoredChira>(raw);
+  if (item && typeof item.dataUrl === "string") return item.dataUrl;
+
+  // なければ固定画像へフォールバック
+  // public/ahatouch/chirarizumu/${id}.jpg を想定
   return `/ahatouch/chirarizumu/${id}.jpg`;
-};
+}
 
-/**
- * URL.createObjectURL() で作ったURLを破棄
- */
-export const revokeUrl = (url?: string | null) => {
-  if (!url) return;
-  try {
-    URL.revokeObjectURL(url);
-  } catch {}
-};
-
-// ===== 保存（アップロード）系 =====
-const STORAGE_KEY = "ahatouch_chirarizumu_images";
-
-export const loadStoredChirarizumuImages = (): StoredImage[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .filter(
-        (x) =>
-          x &&
-          typeof x.id === "string" &&
-          typeof x.url === "string" &&
-          typeof x.name === "string"
-      )
-      .map((x) => ({ id: x.id, url: x.url, name: x.name }));
-  } catch {
-    return [];
-  }
-};
-
-export const saveStoredChirarizumuImages = (items: StoredImage[]) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {}
-};
-
-/**
- * 保存済み（Stored）専用の一覧
- */
-export const listStoredChirarizumuImages = (): StoredImage[] => {
-  return loadStoredChirarizumuImages();
-};
-
-/**
- * 追加：FileList を受け取り、objectURL を作って保存する
- */
-export const addChirarizumuImages = async (files: FileList) => {
-  const cur = loadStoredChirarizumuImages();
-  const next = [...cur];
-
-  for (const f of Array.from(files)) {
-    const id =
-      (globalThis.crypto?.randomUUID?.() as string | undefined) ??
-      `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-    const url = URL.createObjectURL(f);
-
-    next.unshift({
-      id,
-      url,
-      name: f.name || "image",
-    });
-  }
-
-  saveStoredChirarizumuImages(next);
-  return next;
-};
-
-/**
- * 全削除（objectURLのrevokeは呼び出し側で）
- */
-export const clearChirarizumuImages = async () => {
-  if (typeof window === "undefined") return [];
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {}
-  return [];
-};
-
-// alias（名前揺れ対策）
-export const addChirarizumuImage = addChirarizumuImages;
-export const clearChirarizumuImage = clearChirarizumuImages;
-
-/**
- * import名揺れ対策（単数形）
- * - storedがあればそれを返す
- * - 無ければ静的にフォールバック
- *
- * ※ async にする必要は無い（同期でOK）
- */
-export const getChirarizumuImageSrcById = (id: string) => {
-  const stored = loadStoredChirarizumuImages();
-  const found = stored.find((x) => x.id === id);
-  if (found?.url) return found.url;
-  return getChirarizumuImagesSrcById(id);
-};
+export async function listChiraWithSrc(): Promise<(ChiraMeta & { src: string | null })[]> {
+  const metas = await listChira();
+  const out = await Promise.all(metas.map(async (m) => ({ ...m, src: await getChiraSrcById(m.id) })));
+  return out;
+}

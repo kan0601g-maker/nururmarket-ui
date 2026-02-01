@@ -1,30 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  listChirarizumuImages,
-  getChirarizumuImageSrcById,
-  type ChirarizumuImage,
+  chirarizumuStaticIds,
+  listChiraWithSrc,
+  saveChiraFromFile,
+  type ChiraMeta,
 } from "../_components/chirarizumuImages";
 
-export default function ChirarizumuHomePage() {
-  const [images, setImages] = useState<ChirarizumuImage[]>([]);
-  const [loadingThumbs, setLoadingThumbs] = useState(false);
+type Item = ChiraMeta & { src: string | null };
+
+export default function Page() {
+  const [items, setItems] = useState<Item[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const list = await listChiraWithSrc();
+    setItems(list);
+  };
 
   useEffect(() => {
-    setImages(listChirarizumuImages());
+    refresh();
   }, []);
 
-  const grid = useMemo(() => images, [images]);
+  const onPick = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await saveChiraFromFile(file);
+      await refresh();
+      setMsg("追加しました");
+    } catch {
+      setMsg("追加に失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="flex items-start justify-between gap-3">
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">みんなでチラリズム</h1>
-            <p className="mt-1 text-sm opacity-70">順番にめくって楽しもう</p>
+            <h1 className="text-3xl font-bold">みんなでチラリズム</h1>
+            <p className="mt-2 text-sm opacity-80">画像を取り込み → パズル（共有は将来）</p>
           </div>
 
           <Link
@@ -36,39 +58,75 @@ export default function ChirarizumuHomePage() {
         </div>
 
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm font-semibold">チラリズム（固定画像）</div>
-          <div className="mt-1 text-xs opacity-70">
-            public/ahatouch/chirarizumu/ 配下の画像を表示しています
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition cursor-pointer">
+              {busy ? "取り込み中…" : "画像を取り込む"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={busy}
+                onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {msg && <div className="text-sm opacity-80">{msg}</div>}
           </div>
 
-          {loadingThumbs && (
-            <div className="mt-2 text-xs opacity-70">読み込み中…</div>
+          <div className="mt-3 text-xs opacity-60">
+            ※ 現段階では端末内保存（localStorage）です（本当の共有は後で）
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">取り込み済み</h2>
+
+          {items.length === 0 ? (
+            <div className="mt-3 text-sm opacity-70">まだ画像がありません。</div>
+          ) : (
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {items.map((x) => (
+                <Link
+                  key={x.id}
+                  href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
+                  className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                >
+                  <div className="p-4">
+                    {x.src && (
+                      <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+                        <img
+                          src={x.src}
+                          alt={x.name}
+                          className="w-full h-40 object-cover"
+                          draggable={false}
+                        />
+                      </div>
+                    )}
+                    <div className="text-sm font-semibold truncate">{x.name}</div>
+                    <div className="mt-1 text-xs opacity-60">{new Date(x.createdAt).toLocaleString()}</div>
+                    <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
+                      この画像でパズル →
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {grid.map((img) => {
-            const src = getChirarizumuImageSrcById(img.id);
-            const label = img.title ?? img.id;
-
-            return (
+        {/* 既存固定画像を残す（必要なら） */}
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold">固定画像（フォールバック）</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-6">
+            {chirarizumuStaticIds.map((id) => (
               <Link
-                key={img.id}
-                href={`/ahatouch/chirarizumu/play?id=${img.id}`}
-                className="group rounded-2xl border border-white/10 bg-white/5 p-3 hover:bg-white/10 transition"
+                key={id}
+                href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(id)}&diff=normal`}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
               >
-                <div className="overflow-hidden rounded-xl border border-white/10">
-                  <img
-                    src={src}
-                    alt={label}
-                    className="h-44 w-full object-cover opacity-90 group-hover:opacity-100 transition"
-                    draggable={false}
-                  />
-                </div>
-                <div className="mt-2 text-sm opacity-80">{label}</div>
+                {id}
               </Link>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </main>
