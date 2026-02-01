@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AHA_CATEGORIES, getCategory } from "../_components/Categories";
-import { listImagesByCategory, pickRandom, type AhaImage } from "../_components/getImages";
+import {
+  listImagesByCategory,
+  pickRandom,
+  type AhaImage,
+} from "../_components/getImages";
 
 type Card = {
   id: string;
@@ -17,10 +21,10 @@ type Card = {
 
 export default function AhaPuzzleHomePage() {
   const sp = useSearchParams();
-  const catParam = sp.get("cat");
-const catObj = catParam ? getCategory(catParam) : null;
-const cat = catObj?.id ?? "animals";
 
+  // ✅ URLクエリは null の可能性があるので安全に扱う
+  const catParam = sp.get("cat");
+  const cat = (catParam ? getCategory(catParam)?.id : null) ?? "animals";
 
   const [cards, setCards] = useState<Card[]>([]);
 
@@ -32,7 +36,8 @@ const cat = catObj?.id ?? "animals";
   useEffect(() => {
     // ✅ クライアントでだけランダム選出（SSRズレ防止）
     const all = listImagesByCategory(cat);
-    const picked = pickRandom(all, 6); // 表示枚数（好みで）
+    const picked = pickRandom(all, 6); // 表示枚数（好みで変更OK）
+
     const next: Card[] = picked.map((img: AhaImage) => ({
       id: img.id,
       label: title,
@@ -40,6 +45,7 @@ const cat = catObj?.id ?? "animals";
       href: `/ahatouch/puzzle/play?id=${encodeURIComponent(img.id)}`,
       imageSrc: img.src,
     }));
+
     setCards(next);
   }, [cat, title]);
 
@@ -108,7 +114,9 @@ const cat = catObj?.id ?? "animals";
                     draggable={false}
                   />
                   <div className="absolute inset-x-0 bottom-0 p-4">
-                    <div className="text-lg font-semibold drop-shadow">{card.label}</div>
+                    <div className="text-lg font-semibold drop-shadow">
+                      {card.label}
+                    </div>
                     <div className="text-sm opacity-80">{card.sub}</div>
                   </div>
                 </div>
