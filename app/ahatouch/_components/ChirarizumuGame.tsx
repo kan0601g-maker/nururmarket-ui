@@ -216,7 +216,7 @@ export default function ChirarizumuGame({
                 aria-label={`chira-${pos}`}
                 className={[
                   "w-full h-full border border-white/20 transition",
-                  enabled ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+                  enabled ? "cursor-pointer" : "cursor-not-allowed",
                   isCandidate ? "ring-2 ring-yellow-300" : "ring-0",
                 ].join(" ")}
                 style={

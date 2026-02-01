@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { listChiraWithSrc, saveChiraFromFile, type ChiraMeta } from "../_components/chirarizumuImages";
+import {
+  listChiraWithSrc,
+  saveChiraFromFile,
+  deleteChiraById,
+  type ChiraMeta,
+} from "../_components/chirarizumuImages";
 
 type Item = ChiraMeta & { src: string | null };
 
@@ -32,7 +37,7 @@ export default function Page() {
       setMsg("追加しました");
     } catch (e: any) {
       if (String(e?.message || "") === "storage_full") {
-        setMsg("保存容量がいっぱいです（画像が大きい可能性）。別の小さめ画像で試すか、画像を減らしてね。");
+        setMsg("保存容量がいっぱいです。別の小さめ画像で試すか、画像を減らしてね。");
       } else {
         setMsg("追加に失敗しました");
       }
@@ -41,13 +46,21 @@ export default function Page() {
     }
   };
 
+  const onDelete = async (id: string) => {
+    const ok = window.confirm("この画像を削除しますか？");
+    if (!ok) return;
+    deleteChiraById(id);
+    await refresh();
+    setMsg("削除しました");
+  };
+
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">みんなでチラリズム</h1>
-            <p className="mt-2 text-sm opacity-80">画像を取り込み → パズル（共有は将来）</p>
+            <p className="mt-2 text-sm opacity-80">画像を取り込み → めくって推測（共有は将来）</p>
           </div>
 
           <Link
@@ -69,7 +82,6 @@ export default function Page() {
                 disabled={busy}
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null;
-                  // 同じファイルを連続で選んでも onChange が走るようにリセット
                   e.currentTarget.value = "";
                   onPick(f);
                 }}
@@ -92,31 +104,53 @@ export default function Page() {
           ) : (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               {items.map((x) => (
-                <Link
+                <div
                   key={x.id}
-                  href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
-                  className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
                 >
-                  <div className="p-4">
-                    {x.src && (
-                      <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
-                        <img
-                          src={x.src}
-                          alt={x.name}
-                          className="w-full h-40 object-cover"
-                          draggable={false}
-                        />
+                  <Link
+                    href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
+                    className="block hover:bg-white/10 transition"
+                  >
+                    <div className="p-4">
+                      {x.src && (
+                        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+                          <img
+                            src={x.src}
+                            alt={x.name}
+                            className="w-full h-40 object-cover"
+                            draggable={false}
+                          />
+                        </div>
+                      )}
+
+                      <div className="text-sm font-semibold truncate">{x.name}</div>
+                      <div className="mt-1 text-xs opacity-60">
+                        {new Date(x.createdAt).toLocaleString()}
                       </div>
-                    )}
 
-                    <div className="text-sm font-semibold truncate">{x.name}</div>
-                    <div className="mt-1 text-xs opacity-60">{new Date(x.createdAt).toLocaleString()}</div>
-
-                    <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
-                      この画像でパズル →
+                      <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
+                        この画像でプレイ →
+                      </div>
                     </div>
+                  </Link>
+
+                  <div className="flex items-center justify-between gap-2 border-t border-white/10 p-3">
+                    <button
+                      onClick={() => onDelete(x.id)}
+                      className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
+                    >
+                      削除
+                    </button>
+
+                    <Link
+                      href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
+                      className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
+                    >
+                      プレイ
+                    </Link>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
