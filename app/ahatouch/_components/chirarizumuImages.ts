@@ -9,12 +9,12 @@ export type ChirarizumuImage = {
 };
 
 /**
- * play 側で localStorage 等に保存する用の最小型
- * （必要になったら項目追加でOK）
+ * localStorageに保存する用（アップロード画像）
  */
 export type StoredImage = {
   id: string;
-  url: string;
+  url: string;   // objectURL
+  name: string;  // 表示名
 };
 
 export const chirarizumuImages: ChirarizumuImage[] = [
@@ -53,7 +53,8 @@ export const chirarizumuImages: ChirarizumuImage[] = [
 ];
 
 /**
- * 指定カテゴリの画像リストを返す
+ * （静的）指定カテゴリの画像リストを返す
+ * ※ こっちは ChirarizumuImage[] を返す
  */
 export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => {
   if (!category) return chirarizumuImages;
@@ -61,22 +62,26 @@ export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => 
 };
 
 /**
- * 画像IDから src を作る
- * ここは実ファイルの置き場所に合わせて変更してOK。
- *
+ * （静的）画像IDから src を作る
  * 例: public/ahatouch/chirarizumu/animals_001.jpg があるなら
  * "/ahatouch/chirarizumu/animals_001.jpg"
  */
 export const getChirarizumuImagesSrcById = (id: string) => {
-  // 拡張子はとりあえず .jpg 想定。pngなら .png に変更。
   return `/ahatouch/chirarizumu/${id}.jpg`;
 };
 
 /**
- * import 名揺れ対策（singular/複数形）
- * page.tsx 側が getChirarizumuImageSrcById を期待していても落ちないようにする
+ * import名揺れ対策（単数形）
  */
-export const getChirarizumuImageSrcById = getChirarizumuImagesSrcById;
+export const getChirarizumuImageSrcById = async (id: string) => {
+  // ここは「静的」も「保存済み」も両対応にしておく（ビルド優先）
+  const stored = loadStoredChirarizumuImages();
+  const found = stored.find((x) => x.id === id);
+  if (found?.url) return found.url;
+
+  // 静的にフォールバック
+  return getChirarizumuImagesSrcById(id);
+};
 
 /**
  * URL.createObjectURL() で作ったURLを破棄
@@ -88,7 +93,7 @@ export const revokeUrl = (url?: string | null) => {
   } catch {}
 };
 
-// --- storage helpers (optional, for client-side save/clear) ---
+// ========== 保存（アップロード）系 ==========
 const STORAGE_KEY = "ahatouch_chirarizumu_images";
 
 export const loadStoredChirarizumuImages = (): StoredImage[] => {
@@ -98,9 +103,16 @@ export const loadStoredChirarizumuImages = (): StoredImage[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+
     return parsed
-      .filter((x) => x && typeof x.id === "string" && typeof x.url === "string")
-      .map((x) => ({ id: x.id, url: x.url }));
+      .filter(
+        (x) =>
+          x &&
+          typeof x.id === "string" &&
+          typeof x.url === "string" &&
+          typeof x.name === "string"
+      )
+      .map((x) => ({ id: x.id, url: x.url, name: x.name }));
   } catch {
     return [];
   }
@@ -114,19 +126,42 @@ export const saveStoredChirarizumuImages = (items: StoredImage[]) => {
 };
 
 /**
- * 画像を追加（同じidは上書き）
+ * ✅ これが今回の本命：保存済み（Stored）専用の一覧
+ * ※ 名前を変えて混線を断つ
  */
-export const addChirarizumuImages = (item: StoredImage) => {
+export const listStoredChirarizumuImages = (): StoredImage[] => {
+  return loadStoredChirarizumuImages();
+};
+
+/**
+ * 追加：FileList を受け取り、objectURL を作って保存する
+ */
+export const addChirarizumuImages = async (files: FileList) => {
   const cur = loadStoredChirarizumuImages();
-  const next = [item, ...cur.filter((x) => x.id !== item.id)];
+  const next = [...cur];
+
+  for (const f of Array.from(files)) {
+    const id =
+      (globalThis.crypto?.randomUUID?.() as string | undefined) ??
+      `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    const url = URL.createObjectURL(f);
+
+    next.unshift({
+      id,
+      url,
+      name: f.name || "image",
+    });
+  }
+
   saveStoredChirarizumuImages(next);
   return next;
 };
 
 /**
- * 全削除
+ * 全削除（objectURLのrevokeは呼び出し側で）
  */
-export const clearChirarizumuImages = () => {
+export const clearChirarizumuImages = async () => {
   if (typeof window === "undefined") return [];
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -134,8 +169,6 @@ export const clearChirarizumuImages = () => {
   return [];
 };
 
-/**
- * import 名揺れ対策（単数形/別名）
- */
+// alias（名前揺れ対策）
 export const addChirarizumuImage = addChirarizumuImages;
 export const clearChirarizumuImage = clearChirarizumuImages;
