@@ -18,6 +18,16 @@
     --foreground: #ededed;
   }
 }
+/* =========================
+   AHA TOUCH Puzzle (Mobile)
+   ========================= */
+
+@media (max-width: 640px) {
+  .puzzle-wrapper {
+    transform: scale(1.15);
+    transform-origin: top left;
+  }
+}
 
 body {
   background: var(--background);
