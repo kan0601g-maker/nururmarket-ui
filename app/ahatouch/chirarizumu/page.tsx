@@ -5,46 +5,63 @@ import { useEffect, useMemo, useState } from "react";
 import {
   listChirarizumuImages,
   getChirarizumuImagesSrcById,
+  revokeUrl,
+  type StoredImage,
   type ChirarizumuImage,
 } from "../_components/chirarizumuImages";
 
 export default function ChirarizumuHomePage() {
-  // 🔴 StoredImage ではなく ChirarizumuImage
-  const [images, setImages] = useState<ChirarizumuImage[]>([]);
-  const [thumbs, setThumbs] = useState<Record<string, string>>({});
-  const [loadingThumbs, setLoadingThumbs] = useState(false);
+  // マスタ（id, category）
+  const [baseImages, setBaseImages] = useState<ChirarizumuImage[]>([]);
 
-  // 初期一覧（static 定義）
+  // 表示用（id, url）
+  const [images, setImages] = useState<StoredImage[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // 初期ロード：マスタだけ読む
   useEffect(() => {
-    setImages(listChirarizumuImages());
+    setBaseImages(listChirarizumuImages());
   }, []);
 
-  // サムネ生成（public 配下の URL）
+  // マスタ → 表示用に変換
   useEffect(() => {
     let alive = true;
-    setThumbs({});
+
+    // 既存URL破棄
+    images.forEach((i) => revokeUrl(i.url));
+    setImages([]);
 
     (async () => {
-      if (!images.length) return;
+      if (!baseImages.length) return;
 
-      setLoadingThumbs(true);
-      const next: Record<string, string> = {};
+      setLoading(true);
 
-      for (const img of images) {
+      const next: StoredImage[] = [];
+
+      for (const img of baseImages) {
         const url = getChirarizumuImagesSrcById(img.id);
-        if (!alive) return;
-        next[img.id] = url;
+        if (!alive) {
+          revokeUrl(url);
+          return;
+        }
+        next.push({ id: img.id, url });
       }
 
-      if (!alive) return;
-      setThumbs(next);
-      setLoadingThumbs(false);
+      if (!alive) {
+        next.forEach((i) => revokeUrl(i.url));
+        return;
+      }
+
+      setImages(next);
+      setLoading(false);
     })();
 
     return () => {
       alive = false;
+      images.forEach((i) => revokeUrl(i.url));
     };
-  }, [images]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseImages]);
 
   const grid = useMemo(() => images, [images]);
 
@@ -65,38 +82,28 @@ export default function ChirarizumuHomePage() {
           </Link>
         </div>
 
-        {loadingThumbs && (
-          <div className="mt-4 text-xs opacity-70">サムネ生成中…</div>
+        {loading && (
+          <div className="mt-4 text-xs opacity-70">読み込み中…</div>
         )}
 
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {grid.map((img) => {
-            const url = thumbs[img.id];
-
-            return (
-              <Link
-                key={img.id}
-                href={`/ahatouch/chirarizumu/play?id=${img.id}`}
-                className="group rounded-2xl border border-white/10 bg-white/5 p-3 hover:bg-white/10 transition"
-              >
-                <div className="overflow-hidden rounded-xl border border-white/10">
-                  {url ? (
-                    <img
-                      src={url}
-                      alt={img.id}
-                      className="h-44 w-full object-cover opacity-90 group-hover:opacity-100 transition"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="h-44 w-full bg-black/20 flex items-center justify-center text-xs opacity-70">
-                      読み込み中…
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 text-sm opacity-80">{img.id}</div>
-              </Link>
-            );
-          })}
+          {grid.map((img) => (
+            <Link
+              key={img.id}
+              href={`/ahatouch/chirarizumu/play?id=${img.id}`}
+              className="group rounded-2xl border border-white/10 bg-white/5 p-3 hover:bg-white/10 transition"
+            >
+              <div className="overflow-hidden rounded-xl border border-white/10">
+                <img
+                  src={img.url}
+                  alt={img.id}
+                  className="h-44 w-full object-cover opacity-90 group-hover:opacity-100 transition"
+                  draggable={false}
+                />
+              </div>
+              <div className="mt-2 text-sm opacity-80">{img.id}</div>
+            </Link>
+          ))}
         </div>
       </div>
     </main>
