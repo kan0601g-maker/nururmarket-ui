@@ -68,7 +68,10 @@ export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => 
  */
 export const getChirarizumuImagesSrcById = (id: string) => {
   return `/ahatouch/chirarizumu/${id}.jpg`;
+export const getChirarizumuImageSrcById = (id: string) => {
+  return getChirarizumuImagesSrcById(id);
 };
+
 
 /**
  * import名揺れ対策（単数形）
