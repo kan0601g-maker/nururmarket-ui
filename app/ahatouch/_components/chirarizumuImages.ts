@@ -73,6 +73,12 @@ export const getChirarizumuImagesSrcById = (id: string) => {
 };
 
 /**
+ * import 名揺れ対策（singular/複数形）
+ * page.tsx 側が getChirarizumuImageSrcById を期待していても落ちないようにする
+ */
+export const getChirarizumuImageSrcById = getChirarizumuImagesSrcById;
+
+/**
  * URL.createObjectURL() で作ったURLを破棄
  */
 export const revokeUrl = (url?: string | null) => {
@@ -81,6 +87,7 @@ export const revokeUrl = (url?: string | null) => {
     URL.revokeObjectURL(url);
   } catch {}
 };
+
 // --- storage helpers (optional, for client-side save/clear) ---
 const STORAGE_KEY = "ahatouch_chirarizumu_images";
 
@@ -91,7 +98,6 @@ export const loadStoredChirarizumuImages = (): StoredImage[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    // 最低限の形だけ保証
     return parsed
       .filter((x) => x && typeof x.id === "string" && typeof x.url === "string")
       .map((x) => ({ id: x.id, url: x.url }));
@@ -127,3 +133,9 @@ export const clearChirarizumuImages = () => {
   } catch {}
   return [];
 };
+
+/**
+ * import 名揺れ対策（単数形/別名）
+ */
+export const addChirarizumuImage = addChirarizumuImages;
+export const clearChirarizumuImage = clearChirarizumuImages;
