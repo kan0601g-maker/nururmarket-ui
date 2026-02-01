@@ -17,7 +17,10 @@ type Card = {
 
 export default function AhaPuzzleHomePage() {
   const sp = useSearchParams();
-  const cat = getCategory(sp.get("cat")).id;
+  const catParam = sp.get("cat");
+const catObj = catParam ? getCategory(catParam) : null;
+const cat = catObj?.id ?? "animals";
+
 
   const [cards, setCards] = useState<Card[]>([]);
 
