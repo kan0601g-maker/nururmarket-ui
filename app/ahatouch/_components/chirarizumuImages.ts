@@ -1,238 +1,209 @@
+// app/ahatouch/_components/chirarizumuImages.ts
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+/**
+ * みんなでチラリズム：画像ストレージ管理（localStorage）
+ *
+ * - 取り込み画像は localStorage に DataURL として保存
+ * - index（一覧）も localStorage に保存
+ * - 固定画像（public配下）は「混ぜない」方針
+ *   → UI側が明示的に使いたい時だけ fallback 関数を呼ぶ
+ */
 
-export type Difficulty = "easy" | "normal" | "hard" | "aha";
-
-type State = {
-  revealed: boolean[]; // 開いたマス
-  moves: number; // 開いた回数
-  startedAt: number | null;
-  solved: boolean; // 全開＝クリア（※任意。クリア条件は別でもOK）
-  solvedAt: number | null;
-  candidates: number[]; // 初期フェーズで「今開けていい候補」
+export type ChiraMeta = {
+  id: string;
+  name: string;
+  createdAt: number; // epoch ms
 };
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-const formatMs = (ms: number) => {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${pad2(s)}`;
-};
+// 互換のため残す（既存コードが参照してても壊れない）
+export type StoredChiraMeta = ChiraMeta;
 
-const configByDiff = (d: Difficulty) => {
-  if (d === "easy") return { size: 6, warmMoves: 3, candidateCount: 6 };
-  if (d === "normal") return { size: 10, warmMoves: 5, candidateCount: 8 };
-  if (d === "hard") return { size: 14, warmMoves: 7, candidateCount: 10 };
-  return { size: 20, warmMoves: 10, candidateCount: 12 }; // aha
-};
+const INDEX_KEY = "ahatouch_chirarizumu_index_v1";
+const ITEM_KEY_PREFIX = "ahatouch_chirarizumu_item_v1_";
 
-const makeInitial = (n: number): State => ({
-  revealed: Array.from({ length: n * n }, () => false),
-  moves: 0,
-  startedAt: null,
-  solved: false,
-  solvedAt: null,
-  candidates: [],
-});
-
-const shufflePick = (pool: number[], k: number) => {
-  const arr = [...pool];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+/** JSONパースの安全版 */
+const safeJsonParse = <T,>(raw: string | null): T | null => {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
   }
-  return arr.slice(0, Math.max(0, Math.min(k, arr.length)));
 };
 
-const pieceStyle = (pos: number, size: number, imageSrc: string) => {
-  const col = pos % size;
-  const row = Math.floor(pos / size);
-  const denom = Math.max(1, size - 1);
-
-  return {
-    backgroundImage: `url(${imageSrc})`,
-    backgroundSize: `${size * 100}% ${size * 100}%`,
-    backgroundPosition: `${(col * 100) / denom}% ${(row * 100) / denom}%`,
-  } as React.CSSProperties;
+/** index読み込み */
+const loadIndex = (): ChiraMeta[] => {
+  const data = safeJsonParse<ChiraMeta[]>(localStorage.getItem(INDEX_KEY));
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(
+      (x) =>
+        x &&
+        typeof x.id === "string" &&
+        typeof x.name === "string" &&
+        typeof x.createdAt === "number"
+    )
+    .sort((a, b) => b.createdAt - a.createdAt);
 };
 
-export default function ChirarizumuGame({
-  imageSrc,
-  imageKey,
-  difficulty = "normal",
-}: {
-  imageSrc: string;
-  imageKey: string;
-  difficulty?: Difficulty;
-}) {
-  const cfg = useMemo(() => configByDiff(difficulty), [difficulty]);
-  const size = cfg.size;
+/** index保存 */
+const saveIndex = (list: ChiraMeta[]) => {
+  try {
+    localStorage.setItem(INDEX_KEY, JSON.stringify(list));
+  } catch {
+    // no-op
+  }
+};
 
-  const [mounted, setMounted] = useState(false);
-  const [state, setState] = useState<State>(() => makeInitial(size));
-  const [nowTick, setNowTick] = useState(0);
+/** ID生成（衝突しにくい） */
+const makeId = () => {
+  const t = Date.now().toString(36);
+  const r = Math.random().toString(36).slice(2, 10);
+  return `chira_${t}_${r}`;
+};
 
-  useEffect(() => {
-    setMounted(true);
-    setNowTick(Date.now());
-  }, []);
+/** File → DataURL */
+const readAsDataURL = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("FileReader error"));
+    fr.onload = () => resolve(String(fr.result ?? ""));
+    fr.readAsDataURL(file);
+  });
 
-  // 初期フェーズ用「候補マス」を作る（このuseEffectより上で宣言してOK）
-  const refreshCandidates = (revealed: boolean[]) => {
-    const pool: number[] = [];
-    for (let i = 0; i < revealed.length; i++) if (!revealed[i]) pool.push(i);
-    return shufflePick(pool, cfg.candidateCount);
-  };
-
-  // 難易度や画像が変わったらリセット
-  useEffect(() => {
-    if (!mounted) return;
-    setState(makeInitial(size));
-    setNowTick(Date.now());
-
-    // 初期候補も即時入れる（表示の空白を防ぐ）
-    setTimeout(() => {
-      setState((p) => ({ ...p, candidates: refreshCandidates(p.revealed) }));
-    }, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, size, imageKey, difficulty]);
-
-  // タイマー更新
-  useEffect(() => {
-    if (!mounted) return;
-    if (state.startedAt === null || state.solved) return;
-    const id = window.setInterval(() => setNowTick(Date.now()), 250);
-    return () => window.clearInterval(id);
-  }, [mounted, state.startedAt, state.solved]);
-
-  const elapsedMs = useMemo(() => {
-    if (!mounted || state.startedAt === null) return 0;
-    if (state.solvedAt !== null) return state.solvedAt - state.startedAt;
-    return nowTick - state.startedAt;
-  }, [mounted, state.startedAt, state.solvedAt, nowTick]);
-
-  const isWarmPhase = state.moves < cfg.warmMoves;
-
-  const canOpen = (pos: number) => {
-    if (state.revealed[pos]) return false;
-    if (!isWarmPhase) return true;
-    return state.candidates.includes(pos);
-  };
-
-  const open = (pos: number) => {
-    if (!mounted) return;
-
-    setState((prev) => {
-      // ※ prev を使って判定しないとズレるので、ローカル判定を作る
-      const isWarm = prev.moves < cfg.warmMoves;
-      const allowed = !prev.revealed[pos] && (!isWarm || prev.candidates.includes(pos));
-      if (!allowed) return prev;
-
-      const startedAt = prev.startedAt ?? Date.now();
-      const revealed = [...prev.revealed];
-      revealed[pos] = true;
-
-      const moves = prev.moves + 1;
-
-      // クリア条件：全開（あとで「当てる」に変更可）
-      const solved = revealed.every(Boolean);
-      const solvedAt = solved ? Date.now() : null;
-
-      const nextCandidates = moves < cfg.warmMoves ? refreshCandidates(revealed) : [];
-
-      return {
-        ...prev,
-        revealed,
-        moves,
-        startedAt,
-        solved,
-        solvedAt: solved ? solvedAt : prev.solvedAt,
-        candidates: nextCandidates,
-      };
-    });
-  };
-
-  const reset = () => {
-    if (!mounted) return;
-    setState(makeInitial(size));
-    setNowTick(Date.now());
-    setTimeout(() => {
-      setState((p) => ({ ...p, candidates: refreshCandidates(p.revealed) }));
-    }, 0);
-  };
-
-  if (!mounted) return null;
-
+const isQuotaError = (e: unknown) => {
+  // ブラウザによって name が違うことがあるので広めに判定
+  const anyE = e as any;
+  const name = String(anyE?.name ?? "");
+  const msg = String(anyE?.message ?? "");
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm opacity-80">
-        <div>
-          手数 {state.moves} / 時間 {formatMs(elapsedMs)}
-          {isWarmPhase && (
-            <span className="ml-3 opacity-80">
-              指定めくり残り {Math.max(0, cfg.warmMoves - state.moves)} 手
-            </span>
-          )}
-        </div>
-
-        <button
-          onClick={reset}
-          className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 hover:bg-white/10 transition"
-        >
-          リセット
-        </button>
-      </div>
-
-      <div className="mt-3 relative w-full overflow-hidden rounded-xl border border-white/10">
-        <img
-          src={imageSrc}
-          alt="chirarizumu"
-          className="block w-full h-[56vh] sm:h-auto object-cover sm:object-contain select-none"
-          draggable={false}
-        />
-
-        <div
-          className="absolute inset-0 grid gap-[2px] p-[2px]"
-          style={{
-            gridTemplateColumns: `repeat(${size}, 1fr)`,
-            gridTemplateRows: `repeat(${size}, 1fr)`,
-          }}
-        >
-          {state.revealed.map((rev, pos) => {
-            const enabled = canOpen(pos);
-            const isCandidate = isWarmPhase && state.candidates.includes(pos);
-
-            return (
-              <button
-                key={pos}
-                type="button"
-                onClick={() => open(pos)}
-                aria-label={`chira-${pos}`}
-                className={[
-                  "w-full h-full border border-white/20 transition",
-                  enabled ? "cursor-pointer" : "cursor-not-allowed", // ←薄くしない
-                  isCandidate ? "ring-2 ring-yellow-300" : "ring-0",
-                ].join(" ")}
-                style={
-                  rev
-                    ? pieceStyle(pos, size, imageSrc)
-                    : ({ backgroundColor: "rgba(0,0,0,0.92)" } as React.CSSProperties)
-                }
-              />
-            );
-          })}
-        </div>
-
-        {state.solved && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 p-3">
-            <div className="rounded-xl bg-black/70 px-4 py-2 text-center text-sm text-white">
-              全開！ 🎉（次は “当てる” 方式にしてもOK）
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    name === "QuotaExceededError" ||
+    name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    msg.toLowerCase().includes("quota") ||
+    msg.toLowerCase().includes("exceeded")
   );
+};
+
+/**
+ * 画像を取り込んで保存（DataURL）
+ * @returns 保存した id
+ *
+ * NOTE:
+ * - page.tsx 側の catch が "storage_full" を見ているので
+ *   容量系は new Error("storage_full") を投げる
+ */
+export async function saveChiraFromFile(file: File): Promise<string> {
+  const dataUrl = await readAsDataURL(file);
+  if (!dataUrl.startsWith("data:")) {
+    throw new Error("Invalid DataURL");
+  }
+
+  const id = makeId();
+  const name = file.name || id;
+  const createdAt = Date.now();
+
+  // 本体保存
+  try {
+    localStorage.setItem(ITEM_KEY_PREFIX + id, dataUrl);
+  } catch (e) {
+    if (isQuotaError(e)) throw new Error("storage_full");
+    throw new Error("Failed to save image (localStorage)");
+  }
+
+  // index更新（先頭追加）
+  const idx = loadIndex();
+  const next: ChiraMeta[] = [{ id, name, createdAt }, ...idx].slice(0, 200);
+  saveIndex(next);
+
+  return id;
+}
+
+/** 取り込み済み一覧（metaのみ） */
+export function listChiraImages(): ChiraMeta[] {
+  try {
+    return loadIndex();
+  } catch {
+    return [];
+  }
+}
+
+/** id → DataURL(src) を取得（取り込み分のみ） */
+export async function getChiraSrcById(id: string): Promise<string | null> {
+  try {
+    const raw = localStorage.getItem(ITEM_KEY_PREFIX + id);
+    if (!raw) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 取り込み済み一覧（src付き）
+ * page.tsx が欲しい形：ChiraMeta & { src: string | null }
+ */
+export async function listChiraWithSrc(): Promise<(ChiraMeta & { src: string | null })[]> {
+  const meta = listChiraImages();
+  const out: (ChiraMeta & { src: string | null })[] = [];
+  for (const m of meta) {
+    const src = await getChiraSrcById(m.id);
+    out.push({ ...m, src });
+  }
+  return out;
+}
+
+/** 1件削除（取り込み分のみ） */
+export function deleteChiraById(id: string): void {
+  try {
+    localStorage.removeItem(ITEM_KEY_PREFIX + id);
+    const idx = loadIndex();
+    const next = idx.filter((x) => x.id !== id);
+    saveIndex(next);
+  } catch {
+    // no-op
+  }
+}
+
+/** 全削除（取り込み分のみ） */
+export function clearAllChira(): void {
+  try {
+    const idx = loadIndex();
+    for (const x of idx) localStorage.removeItem(ITEM_KEY_PREFIX + x.id);
+    localStorage.removeItem(INDEX_KEY);
+  } catch {
+    // no-op
+  }
+}
+
+/**
+ * URL解放（DataURL運用なので基本 no-op）
+ * ※将来 ObjectURL に切り替えたら URL.revokeObjectURL を呼ぶ
+ */
+export function revokeUrl(_url: string): void {
+  // no-op
+}
+
+/* =========================================================
+ * 固定画像（public配下）を “混ぜずに” 使いたい時の任意フォールバック
+ * ========================================================= */
+
+/**
+ * 方針：取り込み優先 → 無ければ固定へ（パスを返すだけ）
+ */
+export async function getChiraSrcByIdWithFallback(
+  id: string,
+  options?: { fallbackBasePath?: string; fallbackExt?: "jpg" | "png" | "webp" }
+): Promise<string | null> {
+  const stored = await getChiraSrcById(id);
+  if (stored) return stored;
+
+  const base = options?.fallbackBasePath ?? "/ahatouch/chirarizumu";
+  const ext = options?.fallbackExt ?? "jpg";
+  return `${base}/${id}.${ext}`;
+}
+
+/** 互換：昔の関数名が残ってても壊れないように */
+export async function saveChiraImageFromFile(file: File): Promise<string> {
+  return saveChiraFromFile(file);
 }
