@@ -2,41 +2,60 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AHA_CATEGORIES } from "../../_components/Categories";
+import { listImagesByCategory, type AhaImage } from "../../_components/getImages";
 
-// ※ ここは君の実装に合わせて import を残してOK
-// 例）import { AhaPuzzle } from "../../_components/AhaPuzzle";
-// 例）import { getImageSrcById, revokeUrl } from "../../_components/....";
+type Difficulty = "easy" | "normal" | "hard";
+
+const AhaPuzzleAny = dynamic(() => import("../../_components/AhaPuzzle"), { ssr: false }) as any;
+
+function findImageSrcById(id: string): string | null {
+  for (const c of AHA_CATEGORIES) {
+    const list = listImagesByCategory(c.id);
+    const hit = list.find((x: AhaImage) => x.id === id);
+    if (hit?.src) return hit.src;
+  }
+  return null;
+}
 
 function PlayInner() {
   const sp = useSearchParams();
+  const id = sp.get("id") ?? "";
+  const diffParam = (sp.get("diff") as Difficulty | null) ?? "normal";
+  const diff: Difficulty = diffParam === "easy" || diffParam === "hard" ? diffParam : "normal";
 
-  // ✅ Suspenseの内側で query を読む
-  const idFromQuery = sp.get("id") ?? "";
-
-  // ======= ここから下は「今ある play の中身」を入れる =======
-  // 例：状態
-  const [ready, setReady] = useState(false);
+  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    // 初期化（必要なら）
-    setReady(true);
-  }, []);
+    if (!id) {
+      setSrc(null);
+      return;
+    }
+    const s = findImageSrcById(id);
+    setSrc(s);
+  }, [id]);
 
-  // ここに、既存の play ロジック（画像取得 / difficulty / UIなど）を貼る
-  // 重要：useSearchParams() はこの PlayInner の中だけで使うこと
+  const title = useMemo(() => {
+    if (!id) return "PUZZLE PLAY";
+    const catGuess = id.split("_")[0]; // animals_019 -> animals
+    const c = AHA_CATEGORIES.find((x) => x.id === catGuess);
+    return c ? `PUZZLE PLAY / ${c.label}` : "PUZZLE PLAY";
+  }, [id]);
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">PUZZLE PLAY</h1>
-            <p className="mt-2 text-sm opacity-70">id: {idFromQuery || "(none)"}</p>
+            <h1 className="text-3xl font-bold">{title}</h1>
+            <div className="mt-2 text-sm opacity-80">id: {id || "(none)"}</div>
+            <div className="mt-1 text-sm opacity-70">difficulty: {diff}</div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <Link
               href="/ahatouch/puzzle"
               className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 transition"
@@ -52,24 +71,58 @@ function PlayInner() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
-          {ready ? (
-            <div className="text-sm opacity-80">
-              ✅ ここに既存のパズルUIを戻す（AhaPuzzleなど）
-              <br />
-              例：<code>{`<AhaPuzzle imageSrc={src} imageKey={idFromQuery} ... />`}</code>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          {!id ? (
+            <div className="text-sm opacity-70">id が指定されていません。</div>
+          ) : !src ? (
+            <div className="text-sm opacity-70">
+              画像が見つかりませんでした（id→src復元に失敗）。
+              <div className="mt-2 opacity-60">id: {id}</div>
             </div>
           ) : (
-            <div className="text-sm opacity-70">読み込み中…</div>
+            <div className="space-y-4">
+              {/* ここでAhaPuzzleを呼び戻す（props不一致でも落ちないよう any） */}
+              <AhaPuzzleAny imageSrc={src} imageKey={id} difficulty={diff} />
+
+              {/* 念のため：パズルが何らかの理由で表示されない場合の保険 */}
+              <details className="text-xs opacity-70">
+                <summary className="cursor-pointer select-none">画像プレビュー（保険）</summary>
+                <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
+                  <img src={src} alt={id} className="w-full h-auto" draggable={false} />
+                </div>
+              </details>
+            </div>
           )}
         </div>
+
+        {/* 難易度切り替え（play上でも変更可能にする） */}
+        {id && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(["easy", "normal", "hard"] as Difficulty[]).map((d) => {
+              const active = d === diff;
+              return (
+                <Link
+                  key={d}
+                  href={`/ahatouch/puzzle/play?id=${encodeURIComponent(id)}&diff=${d}`}
+                  className={[
+                    "rounded-xl px-4 py-2 text-sm border transition",
+                    active
+                      ? "bg-white text-black border-white"
+                      : "bg-white/5 text-white border-white/15 hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  {d === "easy" ? "やさしい" : d === "normal" ? "ふつう" : "上級"}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
 export default function Page() {
-  // ✅ これがビルドエラーを止める本体
   return (
     <Suspense
       fallback={

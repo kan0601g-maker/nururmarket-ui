@@ -7,6 +7,8 @@ import { useSearchParams } from "next/navigation";
 import { AHA_CATEGORIES, getCategory } from "../_components/Categories";
 import { listImagesByCategory, pickRandom, type AhaImage } from "../_components/getImages";
 
+type Difficulty = "easy" | "normal" | "hard";
+
 type Card = {
   id: string;
   label: string;
@@ -15,6 +17,12 @@ type Card = {
   imageSrc: string;
 };
 
+const DIFFS: { id: Difficulty; label: string; desc: string }[] = [
+  { id: "easy", label: "やさしい", desc: "少なめ" },
+  { id: "normal", label: "ふつう", desc: "標準" },
+  { id: "hard", label: "上級", desc: "10×10" },
+];
+
 function PuzzleInner() {
   const sp = useSearchParams();
 
@@ -22,6 +30,10 @@ function PuzzleInner() {
   const catParam = sp.get("cat");
   const catObj = catParam ? getCategory(catParam) : null;
   const cat = catObj?.id ?? "animals";
+
+  // 難易度（デフォルト normal）
+  const diffParam = (sp.get("diff") as Difficulty | null) ?? "normal";
+  const diff: Difficulty = DIFFS.some((d) => d.id === diffParam) ? diffParam : "normal";
 
   const [cards, setCards] = useState<Card[]>([]);
 
@@ -39,12 +51,12 @@ function PuzzleInner() {
       id: img.id,
       label: title,
       sub: "パズル",
-      href: `/ahatouch/puzzle/play?id=${encodeURIComponent(img.id)}`,
+      href: `/ahatouch/puzzle/play?id=${encodeURIComponent(img.id)}&diff=${diff}`,
       imageSrc: img.src,
     }));
 
     setCards(next);
-  }, [cat, title]);
+  }, [cat, title, diff]);
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -65,14 +77,36 @@ function PuzzleInner() {
           </Link>
         </div>
 
-        {/* カテゴリ切り替え */}
+        {/* 難易度切り替え */}
         <div className="mt-6 flex flex-wrap gap-2">
+          {DIFFS.map((d) => {
+            const active = d.id === diff;
+            return (
+              <Link
+                key={d.id}
+                href={`/ahatouch/puzzle?cat=${cat}&diff=${d.id}`}
+                className={[
+                  "rounded-xl px-4 py-2 text-sm border transition",
+                  active
+                    ? "bg-white text-black border-white"
+                    : "bg-white/5 text-white border-white/15 hover:bg-white/10",
+                ].join(" ")}
+                title={d.desc}
+              >
+                {d.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* カテゴリ切り替え */}
+        <div className="mt-3 flex flex-wrap gap-2">
           {AHA_CATEGORIES.map((c) => {
             const active = c.id === cat;
             return (
               <Link
                 key={c.id}
-                href={`/ahatouch/puzzle?cat=${c.id}`}
+                href={`/ahatouch/puzzle?cat=${c.id}&diff=${diff}`}
                 className={[
                   "rounded-xl px-4 py-2 text-sm border transition",
                   active
@@ -110,9 +144,7 @@ function PuzzleInner() {
                     draggable={false}
                   />
                   <div className="absolute inset-x-0 bottom-0 p-4">
-                    <div className="text-lg font-semibold drop-shadow">
-                      {card.label}
-                    </div>
+                    <div className="text-lg font-semibold drop-shadow">{card.label}</div>
                     <div className="text-sm opacity-80">{card.sub}</div>
                   </div>
                 </div>
