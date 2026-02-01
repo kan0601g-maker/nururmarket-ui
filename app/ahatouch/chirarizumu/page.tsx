@@ -1,3 +1,4 @@
+// app/ahatouch/chirarizumu/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -106,8 +107,19 @@ export default function Page() {
               {items.map((x) => (
                 <div
                   key={x.id}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5"
                 >
+                  {/* 🗑 削除（右上） */}
+                  <button
+                    type="button"
+                    onClick={() => onDelete(x.id)}
+                    className="absolute right-3 top-3 z-10 rounded-lg border border-white/15 bg-black/40 px-2 py-1 text-sm hover:bg-black/60 transition"
+                    aria-label="delete"
+                    title="削除"
+                  >
+                    🗑
+                  </button>
+
                   <Link
                     href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
                     className="block hover:bg-white/10 transition"
@@ -124,7 +136,7 @@ export default function Page() {
                         </div>
                       )}
 
-                      <div className="text-sm font-semibold truncate">{x.name}</div>
+                      <div className="text-sm font-semibold truncate pr-10">{x.name}</div>
                       <div className="mt-1 text-xs opacity-60">
                         {new Date(x.createdAt).toLocaleString()}
                       </div>
@@ -135,17 +147,11 @@ export default function Page() {
                     </div>
                   </Link>
 
-                  <div className="flex items-center justify-between gap-2 border-t border-white/10 p-3">
-                    <button
-                      onClick={() => onDelete(x.id)}
-                      className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-                    >
-                      削除
-                    </button>
-
+                  {/* 下段はプレイだけ残す */}
+                  <div className="border-t border-white/10 p-3">
                     <Link
                       href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
-                      className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
+                      className="inline-block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
                     >
                       プレイ
                     </Link>
