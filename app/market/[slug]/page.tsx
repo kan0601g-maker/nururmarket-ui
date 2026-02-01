@@ -4,23 +4,43 @@ import AppHeader from "../../components/AppHeader";
 export default function MarketItemPage() {
   return (
     <main className="min-h-screen bg-pink-50 text-zinc-900">
-      {/* Header（スクショの上帯：中央タイトル + 右側ナビ） */}
+      {/* Header（スクショの上帯：中央タイトル + 右側リンク1つ） */}
       <AppHeader
         leftTitle="NURU MARKET"
-        navLinks={[
-          { href: "/market", label: "Market" },
-          { href: "/rooms", label: "Rooms" },
-          { href: "/wallet", label: "Wallet" },
-        ]}
+        rightLink={{ href: "/market", label: "Market" }}
       />
 
+      {/* 旧 navLinks の3つは、ページ側でボタンとして出す（AppHeaderをいじらず最短でビルド通す） */}
       <section className="mx-auto max-w-6xl px-6 py-10">
-        <a
-          href="/market"
-          className="inline-block text-sm text-zinc-700 hover:underline"
-        >
-          ← Marketへ戻る
-        </a>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <a
+            href="/market"
+            className="inline-block text-sm text-zinc-700 hover:underline"
+          >
+            ← Marketへ戻る
+          </a>
+
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/market"
+              className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            >
+              Market
+            </a>
+            <a
+              href="/rooms"
+              className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            >
+              Rooms
+            </a>
+            <a
+              href="/wallet"
+              className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            >
+              Wallet
+            </a>
+          </div>
+        </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           {/* LEFT */}
