@@ -104,60 +104,57 @@ export default function Page() {
             <div className="mt-3 text-sm opacity-70">まだ画像がありません。</div>
           ) : (
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              {items.map((x) => (
-                <div
-                  key={x.id}
-                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5"
-                >
-                  {/* 🗑 削除（右上） */}
-                  <button
-                    type="button"
-                    onClick={() => onDelete(x.id)}
-                    className="absolute right-3 top-3 z-10 rounded-lg border border-white/15 bg-black/40 px-2 py-1 text-sm hover:bg-black/60 transition"
-                    aria-label="delete"
-                    title="削除"
-                  >
-                    🗑
-                  </button>
+             {items.map((x) => (
+  <div
+    key={x.id}
+    className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+  >
+    {/* 右上ゴミ箱（削除） */}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete(x.id);
+      }}
+      className="absolute right-3 top-3 z-10 rounded-xl border border-white/15 bg-black/60 px-2 py-2 text-xs hover:bg-black/80 transition"
+      aria-label="delete"
+      title="削除"
+    >
+      🗑
+    </button>
 
-                  <Link
-                    href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
-                    className="block hover:bg-white/10 transition"
-                  >
-                    <div className="p-4">
-                      {x.src && (
-                        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
-                          <img
-                            src={x.src}
-                            alt={x.name}
-                            className="w-full h-40 object-cover"
-                            draggable={false}
-                          />
-                        </div>
-                      )}
+    <div className="p-4">
+      {x.src && (
+        <div className="mb-3 overflow-hidden rounded-xl border border-white/10">
+          <img
+            src={x.src}
+            alt={x.name}
+            className="w-full h-40 object-cover"
+            draggable={false}
+          />
+        </div>
+      )}
 
-                      <div className="text-sm font-semibold truncate pr-10">{x.name}</div>
-                      <div className="mt-1 text-xs opacity-60">
-                        {new Date(x.createdAt).toLocaleString()}
-                      </div>
+      <div className="text-sm font-semibold truncate">{x.name}</div>
+      <div className="mt-1 text-xs opacity-60">{new Date(x.createdAt).toLocaleString()}</div>
 
-                      <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
-                        この画像でプレイ →
-                      </div>
-                    </div>
-                  </Link>
+      <div className="mt-3 text-sm opacity-80 underline underline-offset-4">
+        この画像でプレイ →
+      </div>
+    </div>
 
-                  {/* 下段はプレイだけ残す */}
-                  <div className="border-t border-white/10 p-3">
-                    <Link
-                      href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
-                      className="inline-block rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
-                    >
-                      プレイ
-                    </Link>
-                  </div>
-                </div>
-              ))}
+    <div className="border-t border-white/10 p-3">
+      <Link
+        href={`/ahatouch/chirarizumu/play?id=${encodeURIComponent(x.id)}&diff=normal`}
+        className="inline-flex rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs hover:bg-white/10 transition"
+      >
+        プレイ
+      </Link>
+    </div>
+  </div>
+))}
+
             </div>
           )}
         </div>
