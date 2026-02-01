@@ -13,10 +13,11 @@ export type ChirarizumuImage = {
  */
 export type StoredImage = {
   id: string;
-  url: string;   // objectURL
-  name: string;  // 表示名
+  url: string; // objectURL
+  name: string; // 表示名
 };
 
+// ===== 静的（public配下） =====
 export const chirarizumuImages: ChirarizumuImage[] = [
   // 🐾 animals
   { id: "animals_001", category: "animals" },
@@ -56,7 +57,9 @@ export const chirarizumuImages: ChirarizumuImage[] = [
  * （静的）指定カテゴリの画像リストを返す
  * ※ こっちは ChirarizumuImage[] を返す
  */
-export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => {
+export const listChirarizumuImages = (
+  category?: ChirarizumuCategory | null
+): ChirarizumuImage[] => {
   if (!category) return chirarizumuImages;
   return chirarizumuImages.filter((x) => x.category === category);
 };
@@ -68,22 +71,6 @@ export const listChirarizumuImages = (category?: ChirarizumuCategory | null) => 
  */
 export const getChirarizumuImagesSrcById = (id: string) => {
   return `/ahatouch/chirarizumu/${id}.jpg`;
-export const getChirarizumuImageSrcById = (id: string) => {
-  return getChirarizumuImagesSrcById(id);
-};
-
-
-/**
- * import名揺れ対策（単数形）
- */
-export const getChirarizumuImageSrcById = async (id: string) => {
-  // ここは「静的」も「保存済み」も両対応にしておく（ビルド優先）
-  const stored = loadStoredChirarizumuImages();
-  const found = stored.find((x) => x.id === id);
-  if (found?.url) return found.url;
-
-  // 静的にフォールバック
-  return getChirarizumuImagesSrcById(id);
 };
 
 /**
@@ -96,7 +83,7 @@ export const revokeUrl = (url?: string | null) => {
   } catch {}
 };
 
-// ========== 保存（アップロード）系 ==========
+// ===== 保存（アップロード）系 =====
 const STORAGE_KEY = "ahatouch_chirarizumu_images";
 
 export const loadStoredChirarizumuImages = (): StoredImage[] => {
@@ -129,8 +116,7 @@ export const saveStoredChirarizumuImages = (items: StoredImage[]) => {
 };
 
 /**
- * ✅ これが今回の本命：保存済み（Stored）専用の一覧
- * ※ 名前を変えて混線を断つ
+ * 保存済み（Stored）専用の一覧
  */
 export const listStoredChirarizumuImages = (): StoredImage[] => {
   return loadStoredChirarizumuImages();
@@ -175,3 +161,17 @@ export const clearChirarizumuImages = async () => {
 // alias（名前揺れ対策）
 export const addChirarizumuImage = addChirarizumuImages;
 export const clearChirarizumuImage = clearChirarizumuImages;
+
+/**
+ * import名揺れ対策（単数形）
+ * - storedがあればそれを返す
+ * - 無ければ静的にフォールバック
+ *
+ * ※ async にする必要は無い（同期でOK）
+ */
+export const getChirarizumuImageSrcById = (id: string) => {
+  const stored = loadStoredChirarizumuImages();
+  const found = stored.find((x) => x.id === id);
+  if (found?.url) return found.url;
+  return getChirarizumuImagesSrcById(id);
+};
