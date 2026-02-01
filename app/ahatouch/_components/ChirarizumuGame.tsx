@@ -12,6 +12,7 @@ type State = {
   solved: boolean; // 全開＝クリア（※任意）
   solvedAt: number | null;
   candidates: number[]; // 初期フェーズで「今開けていい候補」
+  freeUnlocked: boolean; // warmMoves後の「自由めくり許可」
 };
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -36,6 +37,7 @@ const makeInitial = (n: number): State => ({
   solved: false,
   solvedAt: null,
   candidates: [],
+  freeUnlocked: false,
 });
 
 const shufflePick = (pool: number[], k: number) => {
@@ -97,7 +99,11 @@ export default function ChirarizumuGame({
   // 最初の候補を用意
   useEffect(() => {
     if (!mounted) return;
-    setState((prev) => ({ ...prev, candidates: refreshCandidates(prev.revealed) }));
+    setState((prev) => ({
+      ...prev,
+      candidates: refreshCandidates(prev.revealed),
+      freeUnlocked: false, // 念のため
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, size, imageKey, difficulty]);
 
@@ -118,17 +124,26 @@ export default function ChirarizumuGame({
 
   const isWarmPhase = state.moves < cfg.warmMoves;
 
-  const canOpen = (pos: number, revealed: boolean[], candidates: number[]) => {
+  const canOpen = (
+    pos: number,
+    revealed: boolean[],
+    candidates: number[],
+    freeUnlocked: boolean
+  ) => {
     if (revealed[pos]) return false;
-    if (!isWarmPhase) return true;
-    return candidates.includes(pos);
+
+    // warm中：候補だけOK
+    if (isWarmPhase) return candidates.includes(pos);
+
+    // warm後：許可押すまでNG
+    return freeUnlocked;
   };
 
   const open = (pos: number) => {
     if (!mounted) return;
 
     setState((prev) => {
-      const enabled = canOpen(pos, prev.revealed, prev.candidates);
+      const enabled = canOpen(pos, prev.revealed, prev.candidates, prev.freeUnlocked);
       if (!enabled) return prev;
 
       const startedAt = prev.startedAt ?? Date.now();
@@ -142,6 +157,8 @@ export default function ChirarizumuGame({
 
       const nextCandidates = moves < cfg.warmMoves ? refreshCandidates(revealed) : [];
 
+      // warmが終わった瞬間（moves === warmMoves）で、自由めくりはまだロックのまま
+      // （ユーザーが「めくり許可」ボタンを押すまで開けない）
       return {
         ...prev,
         revealed,
@@ -164,7 +181,13 @@ export default function ChirarizumuGame({
     }, 0);
   };
 
+  const unlockFree = () => {
+    setState((p) => ({ ...p, freeUnlocked: true }));
+  };
+
   if (!mounted) return null;
+
+  const freeLocked = !isWarmPhase && !state.freeUnlocked;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -176,18 +199,34 @@ export default function ChirarizumuGame({
               指定めくり残り {Math.max(0, cfg.warmMoves - state.moves)} 手
             </span>
           )}
+          {freeLocked && <span className="ml-3 opacity-80">めくり許可待ち</span>}
         </div>
 
-        <button
-          onClick={reset}
-          className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 hover:bg-white/10 transition"
-        >
-          リセット
-        </button>
+        <div className="flex gap-2">
+          {freeLocked && (
+            <button
+              onClick={unlockFree}
+              className="rounded-xl border border-yellow-300/50 bg-yellow-300/10 px-4 py-2 hover:bg-yellow-300/20 transition"
+            >
+              めくり許可
+            </button>
+          )}
+
+          <button
+            onClick={reset}
+            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 hover:bg-white/10 transition"
+          >
+            リセット
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 text-xs opacity-70">
-        {isWarmPhase ? "最初は光ってるマスだけめくれる（ランダム指定）" : "自由にめくれる"}
+        {isWarmPhase
+          ? "最初は光ってるマスだけめくれる（ランダム指定）"
+          : freeLocked
+          ? "5手以降は「めくり許可」を押してから進める"
+          : "自由にめくれる"}
       </div>
 
       <div className="mt-3 relative w-full overflow-hidden rounded-xl border border-white/10">
@@ -206,31 +245,29 @@ export default function ChirarizumuGame({
           }}
         >
           {state.revealed.map((rev, pos) => {
-            const enabled = canOpen(pos, state.revealed, state.candidates);
+            const enabled = canOpen(pos, state.revealed, state.candidates, state.freeUnlocked);
             const isCandidate = isWarmPhase && state.candidates.includes(pos);
 
             return (
               <button
-  key={pos}
-  type="button"
-  onClick={() => open(pos)}
-  aria-label={`chira-${pos}`}
-  className={[
-    "w-full h-full border transition",
-    isCandidate
-      ? "border-yellow-300 ring-2 ring-yellow-300"
-      : "border-white/20",
-    enabled ? "cursor-pointer" : "cursor-not-allowed",
-  ].join(" ")}
-  style={
-    rev
-      ? pieceStyle(pos, size, imageSrc)
-      : ({
-          backgroundColor: "rgba(0,0,0,0.95)", // ← ここが変更点
-        } as React.CSSProperties)
-  }
-/>
-
+                key={pos}
+                type="button"
+                onClick={() => open(pos)}
+                aria-label={`chira-${pos}`}
+                className={[
+                  "w-full h-full border transition",
+                  // 候補は枠だけ光る（中身の黒は同じ）
+                  isCandidate ? "border-yellow-300 ring-2 ring-yellow-300" : "border-white/20",
+                  enabled ? "cursor-pointer" : "cursor-not-allowed",
+                ].join(" ")}
+                style={
+                  rev
+                    ? pieceStyle(pos, size, imageSrc)
+                    : ({
+                        backgroundColor: "rgba(0,0,0,0.95)", // ★候補以外も同じ濃さで真っ黒
+                      } as React.CSSProperties)
+                }
+              />
             );
           })}
         </div>
