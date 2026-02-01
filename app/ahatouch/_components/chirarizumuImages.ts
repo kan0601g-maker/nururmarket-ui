@@ -81,3 +81,49 @@ export const revokeUrl = (url?: string | null) => {
     URL.revokeObjectURL(url);
   } catch {}
 };
+// --- storage helpers (optional, for client-side save/clear) ---
+const STORAGE_KEY = "ahatouch_chirarizumu_images";
+
+export const loadStoredChirarizumuImages = (): StoredImage[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // 最低限の形だけ保証
+    return parsed
+      .filter((x) => x && typeof x.id === "string" && typeof x.url === "string")
+      .map((x) => ({ id: x.id, url: x.url }));
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredChirarizumuImages = (items: StoredImage[]) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch {}
+};
+
+/**
+ * 画像を追加（同じidは上書き）
+ */
+export const addChirarizumuImages = (item: StoredImage) => {
+  const cur = loadStoredChirarizumuImages();
+  const next = [item, ...cur.filter((x) => x.id !== item.id)];
+  saveStoredChirarizumuImages(next);
+  return next;
+};
+
+/**
+ * 全削除
+ */
+export const clearChirarizumuImages = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {}
+  return [];
+};
