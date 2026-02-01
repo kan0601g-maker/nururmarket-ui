@@ -8,7 +8,7 @@ import { getChiraSrcById } from "../../_components/chirarizumuImages";
 
 type Difficulty = "easy" | "normal" | "hard" | "aha";
 
-const AhaPuzzleAny = dynamic(() => import("../../_components/AhaPuzzle"), { ssr: false }) as any;
+const ChiraGameAny = dynamic(() => import("../../_components/ChirarizumuGame"), { ssr: false }) as any;
 
 function Inner() {
   const sp = useSearchParams();
@@ -67,7 +67,7 @@ function Inner() {
           ) : !src ? (
             <div className="text-sm opacity-70">画像が見つかりませんでした。</div>
           ) : (
-            <AhaPuzzleAny imageSrc={src} imageKey={`chira_${id}`} difficulty={diff} />
+            <ChiraGameAny imageSrc={src} imageKey={`chira_${id}`} difficulty={diff} />
           )}
         </div>
 
@@ -86,7 +86,13 @@ function Inner() {
                       : "bg-white/5 text-white border-white/15 hover:bg-white/10",
                   ].join(" ")}
                 >
-                  {d === "easy" ? "やさしい" : d === "normal" ? "ふつう" : d === "hard" ? "上級" : "AHA(20×20)"}
+                  {d === "easy"
+                    ? "やさしい"
+                    : d === "normal"
+                    ? "ふつう"
+                    : d === "hard"
+                    ? "上級"
+                    : "AHA(20×20)"}
                 </Link>
               );
             })}
