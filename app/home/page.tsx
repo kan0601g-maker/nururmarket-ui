@@ -1,3 +1,7 @@
+"use client";
+
+import Link from "next/link";
+
 type RightLink = { href: string; label: string };
 
 export default function AppHeader({
@@ -5,7 +9,7 @@ export default function AppHeader({
   rightLink,
 }: {
   leftTitle: string;
-  rightLink?: RightLink; // ← optionalにする
+  rightLink?: RightLink; // optional
 }) {
   return (
     <header className="...">
