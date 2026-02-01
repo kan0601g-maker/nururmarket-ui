@@ -5,12 +5,12 @@ import React, { useEffect, useMemo, useState } from "react";
 export type Difficulty = "easy" | "normal" | "hard" | "aha";
 
 type State = {
-  revealed: boolean[];      // 開いたマス
-  moves: number;            // 開いた回数
+  revealed: boolean[]; // 開いたマス
+  moves: number; // 開いた回数
   startedAt: number | null;
-  solved: boolean;          // 全開＝クリア（※任意。クリア条件は別でもOK）
+  solved: boolean; // 全開＝クリア（※任意。クリア条件は別でもOK）
   solvedAt: number | null;
-  candidates: number[];     // 初期フェーズで「今開けていい候補」
+  candidates: number[]; // 初期フェーズで「今開けていい候補」
 };
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -79,24 +79,23 @@ export default function ChirarizumuGame({
     setNowTick(Date.now());
   }, []);
 
-  // 難易度や画像が変わったらリセット
-  useEffect(() => {
-    if (!mounted) return;
-    setState(makeInitial(size));
-    setNowTick(Date.now());
-  }, [mounted, size, imageKey]);
-
-  // 初期フェーズ用「候補マス」を作る
+  // 初期フェーズ用「候補マス」を作る（このuseEffectより上で宣言してOK）
   const refreshCandidates = (revealed: boolean[]) => {
     const pool: number[] = [];
     for (let i = 0; i < revealed.length; i++) if (!revealed[i]) pool.push(i);
     return shufflePick(pool, cfg.candidateCount);
   };
 
-  // 最初の候補を用意
+  // 難易度や画像が変わったらリセット
   useEffect(() => {
     if (!mounted) return;
-    setState((prev) => ({ ...prev, candidates: refreshCandidates(prev.revealed) }));
+    setState(makeInitial(size));
+    setNowTick(Date.now());
+
+    // 初期候補も即時入れる（表示の空白を防ぐ）
+    setTimeout(() => {
+      setState((p) => ({ ...p, candidates: refreshCandidates(p.revealed) }));
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, size, imageKey, difficulty]);
 
@@ -124,8 +123,12 @@ export default function ChirarizumuGame({
 
   const open = (pos: number) => {
     if (!mounted) return;
+
     setState((prev) => {
-      if (!canOpen(pos)) return prev;
+      // ※ prev を使って判定しないとズレるので、ローカル判定を作る
+      const isWarm = prev.moves < cfg.warmMoves;
+      const allowed = !prev.revealed[pos] && (!isWarm || prev.candidates.includes(pos));
+      if (!allowed) return prev;
 
       const startedAt = prev.startedAt ?? Date.now();
       const revealed = [...prev.revealed];
@@ -133,12 +136,11 @@ export default function ChirarizumuGame({
 
       const moves = prev.moves + 1;
 
-      // ✅ クリア条件は「全部開いた」にしてる（後で “当てるボタン” 方式にもできる）
+      // クリア条件：全開（あとで「当てる」に変更可）
       const solved = revealed.every(Boolean);
       const solvedAt = solved ? Date.now() : null;
 
-      const nextCandidates =
-        moves < cfg.warmMoves ? refreshCandidates(revealed) : [];
+      const nextCandidates = moves < cfg.warmMoves ? refreshCandidates(revealed) : [];
 
       return {
         ...prev,
@@ -156,7 +158,6 @@ export default function ChirarizumuGame({
     if (!mounted) return;
     setState(makeInitial(size));
     setNowTick(Date.now());
-    // 初期候補は次のuseEffectで入る
     setTimeout(() => {
       setState((p) => ({ ...p, candidates: refreshCandidates(p.revealed) }));
     }, 0);
@@ -211,7 +212,7 @@ export default function ChirarizumuGame({
                 aria-label={`chira-${pos}`}
                 className={[
                   "w-full h-full border border-white/20 transition",
-                  enabled ? "cursor-pointer" : "cursor-not-allowed opacity-70",
+                  enabled ? "cursor-pointer" : "cursor-not-allowed", // ←薄くしない
                   isCandidate ? "ring-2 ring-yellow-300" : "ring-0",
                 ].join(" ")}
                 style={
@@ -234,27 +235,4 @@ export default function ChirarizumuGame({
       </div>
     </div>
   );
-}
-export function deleteChiraById(id: string): void {
-  try {
-    // 本体削除
-    localStorage.removeItem(ITEM_KEY_PREFIX + id);
-
-    // index更新
-    const idx = loadIndex();
-    const next = idx.filter((x) => x.id !== id);
-    saveIndex(next);
-  } catch {
-    // no-op
-  }
-}
-
-export function clearAllChira(): void {
-  try {
-    const idx = loadIndex();
-    for (const x of idx) localStorage.removeItem(ITEM_KEY_PREFIX + x.id);
-    localStorage.removeItem(INDEX_KEY);
-  } catch {
-    // no-op
-  }
 }
