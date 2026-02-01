@@ -31,7 +31,7 @@ const formatMs = (ms: number) => {
  */
 const sizeByDifficulty = (d: Difficulty) => {
   if (d === "easy") return 4;
-  if (d === "normal") return 5;
+  if (d === "normal") return 6;
   return 10;
 };
 
